@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { AttachmentSchema } from "./attachment";
 
 const AssignmentSchema = new mongoose.Schema(
   {
@@ -6,6 +7,8 @@ const AssignmentSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     instructions: { type: String, default: "" },
     resourceUrl: { type: String, default: "" },
+    attachments: [AttachmentSchema],
+    lesson: { type: mongoose.Schema.Types.ObjectId, ref: "Lesson", default: null },
     dueDate: { type: Date },
     maxPoints: { type: Number, default: 100 },
   },

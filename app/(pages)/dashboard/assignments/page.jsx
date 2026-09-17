@@ -3,6 +3,7 @@ import { ClipboardList } from "lucide-react";
 import { PageHeader, Panel, EmptyState } from "@/components/ui/Blocks";
 import AssignmentRow from "@/components/portal/AssignmentRow";
 import { requireStudent } from "@/lib/auth";
+import { isStorageConfigured } from "@/lib/storage";
 import { getI18n } from "@/lib/i18n/server";
 import { getMyEnrollments, accessibleCourseIds, getMyAssignments } from "@/lib/student-data";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,7 @@ export default async function AssignmentsPage({ searchParams }) {
         ))}
       </div>
       <Panel bodyClassName="divide-y divide-line">
-        {list.length ? list.map((a) => <AssignmentRow key={a._id} assignment={a} />) : <EmptyState icon={<ClipboardList className="size-5" />} title={t("student.assignments.empty")} />}
+        {list.length ? list.map((a) => <AssignmentRow key={a._id} assignment={a} storage={isStorageConfigured()} />) : <EmptyState icon={<ClipboardList className="size-5" />} title={t("student.assignments.empty")} />}
       </Panel>
     </>
   );

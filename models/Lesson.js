@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { AttachmentSchema } from "./attachment";
 
 const LessonSchema = new mongoose.Schema(
   {
@@ -8,8 +9,10 @@ const LessonSchema = new mongoose.Schema(
     startsAt: { type: Date, required: true },
     durationMin: { type: Number, default: 90 },
     meetingUrl: { type: String, default: "" },
-    recordingUrl: { type: String, default: "" },
     materials: [{ title: String, url: String }],
+    attachments: [AttachmentSchema],
+    roomLocked: { type: Boolean, default: false },
+    endedAt: Date,
   },
   { timestamps: true },
 );

@@ -7,12 +7,15 @@ import ActionForm, { SubmitButton } from "@/components/ui/ActionForm";
 import { StatusBadge, LevelBadge } from "@/components/ui/Badges";
 import { useI18n } from "@/components/I18nProvider";
 import { submitAssignment } from "@/app/actions/student";
+import FileUploader from "@/components/files/FileUploader";
+import AttachmentList from "@/components/files/AttachmentList";
 
-export default function AssignmentRow({ assignment, showCourse = true }) {
+export default function AssignmentRow({ assignment, showCourse = true, storage = false }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const s = assignment.submission;
   const graded = assignment.state === "graded";
+  const courseId = assignment.course?._id || assignment.course;
 
   return (
     <>
@@ -50,6 +53,12 @@ export default function AssignmentRow({ assignment, showCourse = true }) {
               <div className="prose-text rounded-lg border border-line bg-canvas/50 p-4">{assignment.instructions}</div>
             </div>
           )}
+          {assignment.attachments?.length > 0 && (
+            <div>
+              <p className="label">{t("files.teacherFiles")}</p>
+              <AttachmentList files={assignment.attachments} t={t} />
+            </div>
+          )}
           {assignment.resourceUrl && (
             <a href={assignment.resourceUrl} target="_blank" rel="noopener noreferrer" className="link inline-flex items-center gap-1.5 text-sm">
               <ExternalLink className="size-4" /> {t("assignments.openResource")}
@@ -61,6 +70,12 @@ export default function AssignmentRow({ assignment, showCourse = true }) {
                 <span className="text-sm font-medium text-emerald-800">{t("assignments.grade")}</span>
                 <span className="text-2xl font-semibold text-emerald-800" dir="ltr">{s.grade} / {assignment.maxPoints}</span>
               </div>
+              {s.feedbackAttachments?.length > 0 && (
+                <div>
+                  <p className="label">{t("files.feedbackFiles")}</p>
+                  <AttachmentList files={s.feedbackAttachments} t={t} />
+                </div>
+              )}
               {s.feedback && (
                 <div>
                   <p className="label flex items-center gap-1.5"><MessageSquareText className="size-3.5" /> {t("assignments.feedback")}</p>
@@ -71,6 +86,7 @@ export default function AssignmentRow({ assignment, showCourse = true }) {
                 <p className="label">{t("assignments.yourAnswer")}</p>
                 <div className="prose-text rounded-lg border border-line bg-canvas/50 p-4">{s.text || "—"}</div>
                 {s.linkUrl && <a href={s.linkUrl} target="_blank" rel="noopener noreferrer" className="link mt-2 inline-block text-sm">{s.linkUrl}</a>}
+                <AttachmentList files={s.attachments} t={t} className="mt-2" />
               </div>
             </div>
           ) : (
@@ -79,6 +95,11 @@ export default function AssignmentRow({ assignment, showCourse = true }) {
                 <span className="label">{t("assignments.yourAnswer")}</span>
                 <textarea name="text" rows={8} defaultValue={s?.text || ""} className="input" placeholder={t("assignments.answerPlaceholder")} />
               </label>
+              <div>
+                <span className="label">{t("files.yourFiles")}</span>
+                <FileUploader scope="submission" courseId={courseId} initial={s?.attachments || []} enabled={storage} max={10} />
+                <span className="hint block">{t("files.submissionHint")}</span>
+              </div>
               <label className="block">
                 <span className="label">{t("assignments.link")}</span>
                 <input name="linkUrl" defaultValue={s?.linkUrl || ""} className="input" placeholder="https://drive.google.com/…" dir="ltr" />

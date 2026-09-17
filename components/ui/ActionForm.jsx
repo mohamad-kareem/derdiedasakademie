@@ -20,6 +20,10 @@ export default function ActionForm({ action, children, className, onSuccess, res
 
   function handleSubmit(event) {
     event.preventDefault();
+    if (event.currentTarget.querySelector('[data-uploading="true"]')) {
+      setState({ ok: false, error: "files.waitForUpload" });
+      return;
+    }
     const formData = new FormData(event.currentTarget);
     startTransition(async () => {
       let result;

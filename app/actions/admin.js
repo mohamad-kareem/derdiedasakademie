@@ -13,7 +13,14 @@ import Assignment from "@/models/Assignment";
 import Submission from "@/models/Submission";
 import Announcement from "@/models/Announcement";
 import Inquiry from "@/models/Inquiry";
-import { LEVELS } from "@/lib/constants";
+import Resource from "@/models/Resource";
+import Attendance from "@/models/Attendance";
+import ChatMessage from "@/models/ChatMessage";
+import Poll from "@/models/Poll";
+import VocabItem from "@/models/VocabItem";
+import { parseAttachments, removedKeys } from "@/lib/access";
+import { deleteKeys } from "@/lib/storage";
+import { LEVELS, RESOURCE_CATEGORIES } from "@/lib/constants";
 import { str, num, isId, isEmail, fail, done } from "@/lib/validate";
 import { parseLocalDateTime, safeUrl } from "@/lib/utils";
 
@@ -54,6 +61,7 @@ export async function saveCourse(courseId, formData) {
     currency: (str(formData, "currency", 3) || "EUR").toUpperCase(),
     capacity: Math.max(1, Math.round(num(formData, "capacity", 12))),
     meetingUrl: safeUrl(str(formData, "meetingUrl", 500)),
+    classroom: str(formData, "classroom") === "external" ? "external" : "builtin",
     status: ["draft", "published", "archived"].includes(str(formData, "status")) ? str(formData, "status") : "draft",
   };
 
@@ -73,7 +81,26 @@ export async function deleteCourse(courseId) {
   if (await Enrollment.exists({ course: courseId, status: { $in: ["active", "completed", "pending"] } })) {
     return fail("errors.courseHasStudents");
   }
+  const keysOf = (docs, field = "attachments") => docs.flatMap((d) => (d[field] || []).map((a) => a.key));
+  const [lessonDocs, assignmentDocs, subDocs, annDocs, resDocs, chatDocs] = await Promise.all([
+    Lesson.find({ course: courseId }).select("attachments").lean(),
+    Assignment.find({ course: courseId }).select("attachments").lean(),
+    Submission.find({ course: courseId }).select("attachments feedbackAttachments").lean(),
+    Announcement.find({ course: courseId }).select("attachments").lean(),
+    Resource.find({ course: courseId }).select("attachments").lean(),
+    ChatMessage.find({ lesson: { $in: (await Lesson.find({ course: courseId }).select("_id").lean()).map((l) => l._id) }, attachment: { $ne: null } }).select("attachment").lean(),
+  ]);
+  await deleteKeys([
+    ...keysOf(lessonDocs), ...keysOf(assignmentDocs), ...keysOf(subDocs), ...keysOf(subDocs, "feedbackAttachments"),
+    ...keysOf(annDocs), ...keysOf(resDocs), ...chatDocs.map((c) => c.attachment?.key),
+  ]);
+  const lessonIds = lessonDocs.map((l) => l._id);
   await Promise.all([
+    Resource.deleteMany({ course: courseId }),
+    Attendance.deleteMany({ course: courseId }),
+    Poll.deleteMany({ course: courseId }),
+    VocabItem.deleteMany({ course: courseId }),
+    ChatMessage.deleteMany({ lesson: { $in: lessonIds } }),
     Lesson.deleteMany({ course: courseId }),
     Assignment.deleteMany({ course: courseId }),
     Submission.deleteMany({ course: courseId }),
@@ -113,12 +140,15 @@ export async function saveLesson(courseId, lessonId, formData) {
     startsAt,
     durationMin: Math.max(15, Math.round(num(formData, "durationMin", 90))),
     meetingUrl: safeUrl(str(formData, "meetingUrl", 500)),
-    recordingUrl: safeUrl(str(formData, "recordingUrl", 500)),
     materials: parseMaterials(formData.get("materials")),
+    attachments: parseAttachments(formData, "attachments", `courses/${courseId}/`),
   };
   if (lessonId) {
     if (!isId(lessonId)) return fail("errors.notFound");
+    const before = await Lesson.findOne({ _id: lessonId, course: courseId }).select("attachments").lean();
+    if (!before) return fail("errors.notFound");
     await Lesson.updateOne({ _id: lessonId, course: courseId }, data);
+    await deleteKeys(removedKeys(before.attachments, data.attachments));
   } else {
     await Lesson.create(data);
   }
@@ -128,6 +158,18 @@ export async function saveLesson(courseId, lessonId, formData) {
 
 export async function deleteLesson(lessonId) {
   if (!(await guard()) || !isId(lessonId)) return fail("errors.forbidden");
+  const lesson = await Lesson.findById(lessonId).select("attachments").lean();
+  if (!lesson) return fail("errors.notFound");
+  const chats = await ChatMessage.find({ lesson: lessonId, attachment: { $ne: null } }).select("attachment").lean();
+  await deleteKeys([...(lesson.attachments || []).map((a) => a.key), ...chats.map((c) => c.attachment?.key)]);
+  await Promise.all([
+    Attendance.deleteMany({ lesson: lessonId }),
+    Poll.deleteMany({ lesson: lessonId }),
+    ChatMessage.deleteMany({ lesson: lessonId }),
+    VocabItem.updateMany({ lesson: lessonId }, { lesson: null }),
+    Assignment.updateMany({ lesson: lessonId }, { lesson: null }),
+    Resource.updateMany({ lesson: lessonId }, { lesson: null }),
+  ]);
   await Lesson.deleteOne({ _id: lessonId });
   refresh();
   return done();
@@ -146,10 +188,15 @@ export async function saveAssignment(courseId, assignmentId, formData) {
     resourceUrl: safeUrl(str(formData, "resourceUrl", 500)),
     dueDate: parseLocalDateTime(str(formData, "dueDate")) || undefined,
     maxPoints: Math.max(1, Math.round(num(formData, "maxPoints", 100))),
+    attachments: parseAttachments(formData, "attachments", `courses/${courseId}/`),
+    lesson: isId(str(formData, "lesson")) ? str(formData, "lesson") : null,
   };
   if (assignmentId) {
     if (!isId(assignmentId)) return fail("errors.notFound");
+    const before = await Assignment.findOne({ _id: assignmentId, course: courseId }).select("attachments").lean();
+    if (!before) return fail("errors.notFound");
     await Assignment.updateOne({ _id: assignmentId, course: courseId }, data);
+    await deleteKeys(removedKeys(before.attachments, data.attachments));
   } else {
     await Assignment.create(data);
   }
@@ -159,6 +206,14 @@ export async function saveAssignment(courseId, assignmentId, formData) {
 
 export async function deleteAssignment(assignmentId) {
   if (!(await guard()) || !isId(assignmentId)) return fail("errors.forbidden");
+  const [assignment, subs] = await Promise.all([
+    Assignment.findById(assignmentId).select("attachments").lean(),
+    Submission.find({ assignment: assignmentId }).select("attachments feedbackAttachments").lean(),
+  ]);
+  await deleteKeys([
+    ...(assignment?.attachments || []).map((a) => a.key),
+    ...subs.flatMap((s) => [...(s.attachments || []), ...(s.feedbackAttachments || [])].map((a) => a.key)),
+  ]);
   await Submission.deleteMany({ assignment: assignmentId });
   await Assignment.deleteOne({ _id: assignmentId });
   refresh();
@@ -174,6 +229,9 @@ export async function gradeSubmission(submissionId, formData) {
   if (!Number.isFinite(grade) || grade < 0 || grade > max) return fail("errors.gradeRange");
   sub.grade = grade;
   sub.feedback = str(formData, "feedback", 5000);
+  const feedbackFiles = parseAttachments(formData, "feedbackAttachments", `submissions/${sub.course}/${sub.student}/feedback`);
+  await deleteKeys(removedKeys(sub.feedbackAttachments, feedbackFiles));
+  sub.feedbackAttachments = feedbackFiles;
   sub.status = "graded";
   sub.gradedAt = new Date();
   await sub.save();
@@ -201,9 +259,12 @@ export async function saveAnnouncement(announcementId, formData) {
     pinned: formData.get("pinned") === "on",
     course: isId(course) ? course : null,
   };
+  data.attachments = data.course ? parseAttachments(formData, "attachments", `courses/${data.course}/`) : [];
   if (announcementId) {
     if (!isId(announcementId)) return fail("errors.notFound");
+    const before = await Announcement.findById(announcementId).select("attachments").lean();
     await Announcement.updateOne({ _id: announcementId }, data);
+    await deleteKeys(removedKeys(before?.attachments, data.attachments));
   } else {
     await Announcement.create(data);
   }
@@ -213,6 +274,8 @@ export async function saveAnnouncement(announcementId, formData) {
 
 export async function deleteAnnouncement(id) {
   if (!(await guard()) || !isId(id)) return fail("errors.forbidden");
+  const ann = await Announcement.findById(id).select("attachments").lean();
+  await deleteKeys((ann?.attachments || []).map((a) => a.key));
   await Announcement.deleteOne({ _id: id });
   refresh();
   return done();
@@ -295,6 +358,46 @@ export async function updateStudent(studentId, formData) {
   await User.updateOne({ _id: studentId, role: "student" }, update);
   refresh();
   return done("admin.saved");
+}
+
+/* ---------------- Course library ---------------- */
+
+export async function saveResource(courseId, resourceId, formData) {
+  if (!(await guard()) || !isId(courseId)) return fail("errors.forbidden");
+  const title = str(formData, "title", 160);
+  if (!title) return fail("errors.titleRequired");
+  const category = str(formData, "category");
+  const data = {
+    course: courseId,
+    title,
+    description: str(formData, "description", 3000),
+    category: RESOURCE_CATEGORIES.includes(category) ? category : "other",
+    url: safeUrl(str(formData, "url", 500)),
+    lesson: isId(str(formData, "lesson")) ? str(formData, "lesson") : null,
+    visible: formData.get("visible") === "on",
+    attachments: parseAttachments(formData, "attachments", `courses/${courseId}/`),
+  };
+  if (!data.url && !data.attachments.length) return fail("errors.resourceEmpty");
+  if (resourceId) {
+    if (!isId(resourceId)) return fail("errors.notFound");
+    const before = await Resource.findOne({ _id: resourceId, course: courseId }).select("attachments").lean();
+    if (!before) return fail("errors.notFound");
+    await Resource.updateOne({ _id: resourceId }, data);
+    await deleteKeys(removedKeys(before.attachments, data.attachments));
+  } else {
+    await Resource.create(data);
+  }
+  refresh();
+  return done("admin.saved");
+}
+
+export async function deleteResource(resourceId) {
+  if (!(await guard()) || !isId(resourceId)) return fail("errors.forbidden");
+  const r = await Resource.findById(resourceId).select("attachments").lean();
+  await deleteKeys((r?.attachments || []).map((a) => a.key));
+  await Resource.deleteOne({ _id: resourceId });
+  refresh();
+  return done();
 }
 
 /* ---------------- Inquiries ---------------- */

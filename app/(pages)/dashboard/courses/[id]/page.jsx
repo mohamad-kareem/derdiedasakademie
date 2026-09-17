@@ -1,18 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Video, CalendarDays, Clock, Award, ClipboardList, Megaphone, Pin, History } from "lucide-react";
+import { ArrowLeft, Video, CalendarDays, Clock, Award, ClipboardList, Megaphone, Pin, History, Library, BookA, ExternalLink } from "lucide-react";
 import { Panel, EmptyState } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import LessonItem from "@/components/portal/LessonItem";
 import AssignmentRow from "@/components/portal/AssignmentRow";
+import AttachmentList from "@/components/files/AttachmentList";
 import { requireStudent } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { isId } from "@/lib/validate";
 import connectDB from "@/lib/mongodb";
 import Enrollment from "@/models/Enrollment";
 import Lesson from "@/models/Lesson";
+import Resource from "@/models/Resource";
+import Attendance from "@/models/Attendance";
+import VocabItem from "@/models/VocabItem";
 import "@/models/Course";
 import { getMyAssignments, getAnnouncements, lessonState } from "@/lib/student-data";
+import { isStorageConfigured } from "@/lib/storage";
+import { RESOURCE_CATEGORIES } from "@/lib/constants";
 import { formatDate, plain } from "@/lib/utils";
 
 export default async function CourseRoomPage({ params }) {
@@ -26,16 +32,23 @@ export default async function CourseRoomPage({ params }) {
   if (!enrollment?.course) notFound();
   const course = enrollment.course;
 
-  const [lessonsRaw, assignments, announcements] = await Promise.all([
+  const [lessonsRaw, assignments, announcements, resources, attendance, vocabCount] = await Promise.all([
     Lesson.find({ course: id }).sort({ startsAt: 1 }).lean(),
     getMyAssignments(user.id, [course._id], locale),
     getAnnouncements([course._id], 20).then((list) => list.filter((a) => a.course)),
+    Resource.find({ course: id, visible: true }).sort({ createdAt: -1 }).lean(),
+    Attendance.find({ course: id, user: user.id }).lean(),
+    VocabItem.countDocuments({ course: id }),
   ]);
+  const attByLesson = Object.fromEntries(plain(attendance).map((a) => [a.lesson, a]));
   const lessons = plain(lessonsRaw).map((l) => ({ ...l, course }));
   const upcoming = lessons.filter((l) => lessonState(l) !== "past");
   const past = lessons.filter((l) => lessonState(l) === "past").reverse();
   const progress = lessons.length ? Math.round((past.length / lessons.length) * 100) : 0;
   const isActive = enrollment.status === "active";
+  const storage = isStorageConfigured();
+  const library = RESOURCE_CATEGORIES.map((c) => ({ c, items: plain(resources).filter((r) => r.category === c) })).filter((g) => g.items.length);
+  const next = upcoming[0];
 
   return (
     <>
@@ -59,9 +72,13 @@ export default async function CourseRoomPage({ params }) {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              {isActive && course.meetingUrl && (
+              {isActive && next && course.classroom !== "external" && (
+                <Link href={`/classroom/${next._id}`} className="btn btn-gold"><Video className="size-4" /> {t("student.room.classroom")}</Link>
+              )}
+              {isActive && course.classroom === "external" && course.meetingUrl && (
                 <a href={course.meetingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-gold"><Video className="size-4" /> {t("student.room.classroom")}</a>
               )}
+              {vocabCount > 0 && <Link href={`/dashboard/courses/${id}/vocabulary`} className="btn btn-light"><BookA className="size-4" /> {t("vocab.practice")} ({vocabCount})</Link>}
               {enrollment.status === "completed" && (
                 <Link href={`/certificate/${enrollment._id}`} className="btn btn-light"><Award className="size-4" /> {t("certificate.view")}</Link>
               )}
@@ -77,8 +94,8 @@ export default async function CourseRoomPage({ params }) {
             </div>
           </div>
           <div className="p-4">
-            <p className="text-xs text-muted">{t("student.room.sessions")}</p>
-            <p className="mt-1 text-sm font-semibold text-navy-900">{past.length} / {lessons.length}</p>
+            <p className="text-xs text-muted">{t("classroom.attendance")}</p>
+            <p className="mt-1 text-sm font-semibold text-navy-900">{past.filter((l) => attByLesson[l._id]).length} / {past.length}</p>
           </div>
           <div className="p-4">
             <p className="text-xs text-muted">{t("student.room.assignments")}</p>
@@ -93,11 +110,30 @@ export default async function CourseRoomPage({ params }) {
             {upcoming.length ? upcoming.map((l) => <LessonItem key={l._id} lesson={l} t={t} locale={locale} canJoin={isActive} />) : <EmptyState icon={<CalendarDays className="size-5" />} title={t("student.overview.noSessions")} />}
           </Panel>
           <Panel title={t("student.room.assignments")} bodyClassName="divide-y divide-line">
-            {assignments.length ? assignments.map((a) => <AssignmentRow key={a._id} assignment={a} showCourse={false} />) : <EmptyState icon={<ClipboardList className="size-5" />} title={t("student.room.noAssignments")} />}
+            {assignments.length ? assignments.map((a) => <AssignmentRow key={a._id} assignment={a} showCourse={false} storage={storage} />) : <EmptyState icon={<ClipboardList className="size-5" />} title={t("student.room.noAssignments")} />}
           </Panel>
+          {library.length > 0 && (
+            <Panel title={<span className="inline-flex items-center gap-2"><Library className="size-4" /> {t("library.title")}</span>} bodyClassName="divide-y divide-line">
+              {library.map(({ c, items }) => (
+                <div key={c} className="px-4 py-4">
+                  <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gold-600">{t(`library.categories.${c}`)}</p>
+                  <div className="space-y-4">
+                    {items.map((r) => (
+                      <div key={r._id}>
+                        <p className="text-sm font-semibold text-ink">{r.title}</p>
+                        {r.description && <p className="mt-0.5 text-xs text-muted">{r.description}</p>}
+                        {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="link mt-1 inline-flex items-center gap-1 text-xs"><ExternalLink className="size-3" /> {t("library.openLink")}</a>}
+                        <AttachmentList files={r.attachments} t={t} className="mt-2" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </Panel>
+          )}
           {past.length > 0 && (
             <Panel title={<span className="inline-flex items-center gap-2"><History className="size-4" /> {t("student.room.past")}</span>} bodyClassName="divide-y divide-line">
-              {past.map((l) => <LessonItem key={l._id} lesson={l} t={t} locale={locale} />)}
+              {past.map((l) => <LessonItem key={l._id} lesson={l} t={t} locale={locale} attendance={attByLesson[l._id] || null} />)}
             </Panel>
           )}
         </div>
@@ -108,6 +144,7 @@ export default async function CourseRoomPage({ params }) {
                 <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">{a.pinned && <Pin className="size-3.5 text-gold-500" />}{a.title}</p>
                 <p className="mt-0.5 text-[11px] text-muted">{formatDate(a.createdAt, locale)}</p>
                 {a.body && <p className="prose-text mt-1.5 text-[13px]">{a.body}</p>}
+                <AttachmentList files={a.attachments} t={t} dense className="mt-2" />
               </div>
             )) : <EmptyState icon={<Megaphone className="size-5" />} title={t("student.overview.noAnnouncements")} />}
           </Panel>

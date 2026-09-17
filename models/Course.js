@@ -14,6 +14,7 @@ const CourseSchema = new mongoose.Schema(
     currency: { type: String, default: "EUR" },
     capacity: { type: Number, default: 12, min: 1 },
     meetingUrl: { type: String, default: "" },
+    classroom: { type: String, enum: ["builtin", "external"], default: "builtin" },
     status: { type: String, enum: ["draft", "published", "archived"], default: "draft" },
   },
   { timestamps: true },

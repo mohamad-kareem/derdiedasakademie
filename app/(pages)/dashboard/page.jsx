@@ -3,8 +3,10 @@ import { BookOpen, CalendarDays, ClipboardList, Megaphone, ArrowRight, Hourglass
 import { PageHeader, StatCard, Panel, EmptyState } from "@/components/ui/Blocks";
 import LessonItem from "@/components/portal/LessonItem";
 import AssignmentRow from "@/components/portal/AssignmentRow";
+import AttachmentList from "@/components/files/AttachmentList";
 import { LevelBadge } from "@/components/ui/Badges";
 import { requireStudent } from "@/lib/auth";
+import { isStorageConfigured } from "@/lib/storage";
 import { getI18n } from "@/lib/i18n/server";
 import { getMyEnrollments, accessibleCourseIds, getMyAssignments, getUpcomingLessons, getAnnouncements } from "@/lib/student-data";
 import { formatDate } from "@/lib/utils";
@@ -75,7 +77,7 @@ export default async function StudentOverview() {
               bodyClassName="divide-y divide-line"
             >
               {todo.length ? (
-                todo.slice(0, 4).map((a) => <AssignmentRow key={a._id} assignment={a} />)
+                todo.slice(0, 4).map((a) => <AssignmentRow key={a._id} assignment={a} storage={isStorageConfigured()} />)
               ) : (
                 <EmptyState icon={<ClipboardList className="size-5" />} title={t("student.overview.allDone")} />
               )}
@@ -103,6 +105,7 @@ export default async function StudentOverview() {
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted">{a.course ? `${a.course.level} · ${a.course.title}` : t("announcements.everyone")} · {formatDate(a.createdAt, locale)}</p>
                     {a.body && <p className="prose-text mt-1.5 line-clamp-3 text-[13px]">{a.body}</p>}
+                    <AttachmentList files={a.attachments} t={t} dense className="mt-2" />
                   </div>
                 ))
               ) : (

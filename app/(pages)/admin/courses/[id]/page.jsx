@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Plus, Pencil, Trash2, ExternalLink, Video, PlayCircle, FileText, ClipboardList, Megaphone, CalendarDays, Users, Pin, UserPlus, Eye } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, ExternalLink, Video, FileText, ClipboardList, Megaphone, CalendarDays, Users, Pin, UserPlus, Eye, Paperclip, Library, EyeOff, BarChart3, Link2 } from "lucide-react";
 import { Panel, EmptyState } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import ActionButton from "@/components/ui/ActionButton";
@@ -8,7 +8,12 @@ import ActionForm, { SubmitButton } from "@/components/ui/ActionForm";
 import FormModal from "@/components/admin/FormModal";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
 import InlineCourseForm from "@/components/admin/InlineCourseForm";
-import { LessonFields, AssignmentFields, AnnouncementFields, CourseFields } from "@/components/admin/Fields";
+import { LessonFields, AssignmentFields, AnnouncementFields, CourseFields, ResourceFields } from "@/components/admin/Fields";
+import AttachmentList from "@/components/files/AttachmentList";
+import Resource from "@/models/Resource";
+import Attendance from "@/models/Attendance";
+import { isStorageConfigured } from "@/lib/storage";
+import { isLiveKitConfigured } from "@/lib/livekit";
 import { requireAdmin } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { isId } from "@/lib/validate";
@@ -21,11 +26,11 @@ import Submission from "@/models/Submission";
 import Announcement from "@/models/Announcement";
 import "@/models/User";
 import {
-  saveLesson, deleteLesson, saveAssignment, deleteAssignment, saveAnnouncement, deleteAnnouncement, addStudentToCourse, deleteCourse,
+  saveLesson, deleteLesson, saveAssignment, deleteAssignment, saveAnnouncement, deleteAnnouncement, addStudentToCourse, deleteCourse, saveResource, deleteResource,
 } from "@/app/actions/admin";
 import { cn, formatDate, formatDateTime, formatMoney, formatTime, nowMs, plain } from "@/lib/utils";
 
-const TABS = ["sessions", "students", "assignments", "announcements", "settings"];
+const TABS = ["sessions", "library", "students", "assignments", "announcements", "settings"];
 
 export default async function AdminCoursePage({ params, searchParams }) {
   const { id } = await params;
@@ -40,20 +45,26 @@ export default async function AdminCoursePage({ params, searchParams }) {
   if (!courseDoc) notFound();
   const course = plain(courseDoc);
 
-  const [lessons, enrollments, assignments, submissions, announcements] = plain(
+  const storage = isStorageConfigured();
+  const [lessons, enrollments, assignments, submissions, announcements, resources, attendanceCounts] = plain(
     await Promise.all([
       Lesson.find({ course: id }).sort({ startsAt: 1 }).lean(),
       Enrollment.find({ course: id }).populate("student", "name email phone level").sort({ status: 1, createdAt: -1 }).lean(),
       Assignment.find({ course: id }).sort({ dueDate: 1, createdAt: -1 }).lean(),
       Submission.find({ course: id }).select("assignment status").lean(),
       Announcement.find({ course: id }).sort({ pinned: -1, createdAt: -1 }).lean(),
+      Resource.find({ course: id }).sort({ createdAt: -1 }).lean(),
+      Attendance.aggregate([{ $match: { course: courseDoc._id } }, { $group: { _id: "$lesson", n: { $sum: 1 } } }]),
     ]),
   );
   const active = enrollments.filter((e) => e.status === "active");
   const pendingCount = enrollments.filter((e) => e.status === "pending").length;
   const now = nowMs();
 
-  const tabCount = { sessions: lessons.length, students: active.length, assignments: assignments.length, announcements: announcements.length };
+  const attN = Object.fromEntries(attendanceCounts.map((r) => [r._id, r.n]));
+  const builtin = course.classroom !== "external";
+  const lessonOptions = lessons.map((l) => ({ _id: l._id, title: `${formatDate(l.startsAt, locale)} · ${l.title}` }));
+  const tabCount = { library: resources.length, sessions: lessons.length, students: active.length, assignments: assignments.length, announcements: announcements.length };
 
   return (
     <>
@@ -77,7 +88,8 @@ export default async function AdminCoursePage({ params, searchParams }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {course.meetingUrl && <a href={course.meetingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-gold"><Video className="size-4" /> {t("student.room.classroom")}</a>}
+            {!builtin && course.meetingUrl && <a href={course.meetingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-gold"><Video className="size-4" /> {t("student.room.classroom")}</a>}
+            {builtin && !isLiveKitConfigured() && <span className="badge bg-amber-50 text-amber-800">{t("classroom.notConfigured")}</span>}
             {course.status === "published" && <Link href={`/courses/${course._id}`} className="btn btn-outline"><Eye className="size-4" /> {t("admin.courses.viewPublic")}</Link>}
           </div>
         </div>
@@ -96,7 +108,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
           title={t("admin.course.sessionsTitle")}
           action={
             <FormModal trigger={<><Plus className="size-3.5" /> {t("admin.course.addSession")}</>} triggerClassName="btn-primary btn-sm" title={t("admin.course.addSession")} action={saveLesson.bind(null, id, null)} size="lg">
-              <LessonFields t={t} lesson={{ durationMin: 90 }} />
+              <LessonFields t={t} lesson={{ durationMin: 90 }} courseId={id} storage={storage} />
             </FormModal>
           }
           bodyClassName="divide-y divide-line"
@@ -110,20 +122,56 @@ export default async function AdminCoursePage({ params, searchParams }) {
                   <p className="text-sm font-semibold text-ink">{l.title}</p>
                   <p className="text-xs text-muted">{formatDateTime(l.startsAt, locale)} · {l.durationMin} {t("lessons.min")}</p>
                   <div className="mt-1 flex flex-wrap gap-1.5">
-                    {l.recordingUrl && <a href={l.recordingUrl} target="_blank" rel="noopener noreferrer" className="badge bg-navy-50 text-navy-700"><PlayCircle className="size-3" /> {t("lessons.recording")}</a>}
-                    {l.materials?.map((m, j) => <a key={j} href={m.url} target="_blank" rel="noopener noreferrer" className="badge bg-gold-50 text-gold-600"><FileText className="size-3" /> {m.title}</a>)}
-                    {past && !l.recordingUrl && <span className="badge bg-canvas text-muted">{t("admin.course.noRecording")}</span>}
+                    {l.materials?.map((m, j) => <a key={j} href={m.url} target="_blank" rel="noopener noreferrer" className="badge bg-gold-50 text-gold-600"><Link2 className="size-3" /> {m.title}</a>)}
+                    {l.attachments?.length > 0 && <span className="badge bg-gold-50 text-gold-600"><Paperclip className="size-3" /> {t("files.count", { n: l.attachments.length })}</span>}
+                    {attN[l._id] > 0 && <span className="badge bg-emerald-50 text-emerald-700"><Users className="size-3" /> {t("classroom.attendedCount", { n: attN[l._id] })}</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
+                  {builtin && !past && <Link href={`/classroom/${l._id}`} className="btn btn-gold btn-sm"><Video className="size-3.5" /> {t("classroom.startClass")}</Link>}
+                  <Link href={`/admin/courses/${id}/sessions/${l._id}`} className="btn btn-outline btn-sm" title={t("classroom.sessionReport")}><BarChart3 className="size-3.5" /></Link>
                   <FormModal trigger={<Pencil className="size-3.5" />} triggerClassName="btn-outline btn-sm" title={t("admin.course.editSession")} action={saveLesson.bind(null, id, l._id)} size="lg">
-                    <LessonFields t={t} lesson={l} />
+                    <LessonFields t={t} lesson={l} courseId={id} storage={storage} />
                   </FormModal>
                   <ActionButton action={deleteLesson.bind(null, l._id)} confirm title={t("common.delete")}><Trash2 className="size-3.5" /></ActionButton>
                 </div>
               </div>
             );
           }) : <EmptyState icon={<CalendarDays className="size-5" />} title={t("admin.course.noSessions")} text={t("admin.course.noSessionsText")} />}
+        </Panel>
+      )}
+
+      {tab === "library" && (
+        <Panel
+          title={<span className="inline-flex items-center gap-2"><Library className="size-4" /> {t("library.title")}</span>}
+          action={
+            <FormModal trigger={<><Plus className="size-3.5" /> {t("library.add")}</>} triggerClassName="btn-primary btn-sm" title={t("library.add")} action={saveResource.bind(null, id, null)} size="lg">
+              <ResourceFields t={t} courseId={id} storage={storage} lessons={lessonOptions} />
+            </FormModal>
+          }
+          bodyClassName="divide-y divide-line"
+        >
+          {!storage && <p className="bg-amber-50 px-4 py-2.5 text-xs text-amber-800">{t("files.notConfigured")}</p>}
+          {resources.length ? resources.map((r) => (
+            <div key={r._id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="badge bg-navy-50 text-navy-700">{t(`library.categories.${r.category}`)}</span>
+                  <p className="text-sm font-semibold text-ink">{r.title}</p>
+                  {!r.visible && <span className="badge bg-canvas text-muted"><EyeOff className="size-3" /> {t("library.hidden")}</span>}
+                </div>
+                {r.description && <p className="mt-1 text-xs text-muted">{r.description}</p>}
+                {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="link mt-1 inline-flex items-center gap-1 text-xs"><ExternalLink className="size-3" /> {r.url}</a>}
+                <AttachmentList files={r.attachments} t={t} className="mt-2" />
+              </div>
+              <div className="flex items-start gap-1.5">
+                <FormModal trigger={<Pencil className="size-3.5" />} triggerClassName="btn-outline btn-sm" title={t("common.edit")} action={saveResource.bind(null, id, r._id)} size="lg">
+                  <ResourceFields t={t} resource={r} courseId={id} storage={storage} lessons={lessonOptions} />
+                </FormModal>
+                <ActionButton action={deleteResource.bind(null, r._id)} confirm><Trash2 className="size-3.5" /></ActionButton>
+              </div>
+            </div>
+          )) : <EmptyState icon={<Library className="size-5" />} title={t("library.empty")} text={t("library.emptyAdmin")} />}
         </Panel>
       )}
 
@@ -168,7 +216,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
           title={t("admin.course.assignmentsTitle")}
           action={
             <FormModal trigger={<><Plus className="size-3.5" /> {t("admin.course.addAssignment")}</>} triggerClassName="btn-primary btn-sm" title={t("admin.course.addAssignment")} action={saveAssignment.bind(null, id, null)} size="lg">
-              <AssignmentFields t={t} />
+              <AssignmentFields t={t} courseId={id} storage={storage} lessons={lessonOptions} />
             </FormModal>
           }
           bodyClassName="divide-y divide-line"
@@ -183,12 +231,13 @@ export default async function AdminCoursePage({ params, searchParams }) {
                   <p className="text-sm font-semibold text-ink">{a.title}</p>
                   <p className="text-xs text-muted">
                     {a.dueDate ? t("assignments.due", { date: formatDateTime(a.dueDate, locale) }) : t("assignments.noDue")} · {t("admin.course.submissionsCount", { n: subs.length, total: active.length })}
+                    {a.attachments?.length > 0 && <> · <Paperclip className="inline size-3" /> {a.attachments.length}</>}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {ungraded > 0 && <Link href={`/admin/grading?course=${id}`} className="btn btn-gold btn-sm">{t("admin.course.gradeN", { n: ungraded })}</Link>}
                   <FormModal trigger={<Pencil className="size-3.5" />} triggerClassName="btn-outline btn-sm" title={t("admin.course.editAssignment")} action={saveAssignment.bind(null, id, a._id)} size="lg">
-                    <AssignmentFields t={t} assignment={a} />
+                    <AssignmentFields t={t} assignment={a} courseId={id} storage={storage} lessons={lessonOptions} />
                   </FormModal>
                   <ActionButton action={deleteAssignment.bind(null, a._id)} confirm title={t("common.delete")}><Trash2 className="size-3.5" /></ActionButton>
                 </div>
@@ -203,7 +252,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
           title={t("admin.nav.announcements")}
           action={
             <FormModal trigger={<><Plus className="size-3.5" /> {t("admin.announcements.new")}</>} triggerClassName="btn-primary btn-sm" title={t("admin.announcements.new")} action={saveAnnouncement.bind(null, null)}>
-              <AnnouncementFields t={t} fixedCourseId={id} />
+              <AnnouncementFields t={t} fixedCourseId={id} storage={storage} />
             </FormModal>
           }
           bodyClassName="divide-y divide-line"
@@ -214,10 +263,11 @@ export default async function AdminCoursePage({ params, searchParams }) {
                 <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">{a.pinned && <Pin className="size-3.5 text-gold-500" />}{a.title}</p>
                 <p className="text-[11px] text-muted">{formatDate(a.createdAt, locale)} · {formatTime(a.createdAt, locale)}</p>
                 {a.body && <p className="prose-text mt-1 text-[13px]">{a.body}</p>}
+                <AttachmentList files={a.attachments} t={t} className="mt-2" />
               </div>
               <div className="flex items-start gap-1.5">
                 <FormModal trigger={<Pencil className="size-3.5" />} triggerClassName="btn-outline btn-sm" title={t("common.edit")} action={saveAnnouncement.bind(null, a._id)}>
-                  <AnnouncementFields t={t} announcement={a} fixedCourseId={id} />
+                  <AnnouncementFields t={t} announcement={a} fixedCourseId={id} storage={storage} />
                 </FormModal>
                 <ActionButton action={deleteAnnouncement.bind(null, a._id)} confirm><Trash2 className="size-3.5" /></ActionButton>
               </div>

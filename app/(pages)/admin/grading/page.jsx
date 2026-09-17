@@ -13,6 +13,9 @@ import Course from "@/models/Course";
 import "@/models/User";
 import "@/models/Assignment";
 import { gradeSubmission, reopenSubmission } from "@/app/actions/admin";
+import AttachmentList from "@/components/files/AttachmentList";
+import FileUploader from "@/components/files/FileUploader";
+import { isStorageConfigured } from "@/lib/storage";
 import { cn, formatDateTime, plain } from "@/lib/utils";
 
 export default async function GradingPage({ searchParams }) {
@@ -75,6 +78,7 @@ export default async function GradingPage({ searchParams }) {
                 <p className="mt-3 text-xs text-muted"><Link href={`/admin/students/${s.student._id}`} className="font-medium text-ink hover:underline">{s.student.name}</Link> · {formatDateTime(s.updatedAt, locale)}</p>
                 <div className="prose-text mt-2 line-clamp-4 flex-1 rounded-md bg-canvas/60 p-3 text-[13px]">{s.text || "—"}</div>
                 {s.linkUrl && <a href={s.linkUrl} target="_blank" rel="noopener noreferrer" className="link mt-2 inline-flex items-center gap-1 text-xs"><ExternalLink className="size-3.5" /> {t("admin.grading.openLink")}</a>}
+                <AttachmentList files={s.attachments} t={t} dense className="mt-2" />
                 {s.status === "graded" && s.feedback && <p className="mt-2 line-clamp-2 border-s-2 border-gold-400 ps-2 text-xs text-muted">{s.feedback}</p>}
                 <div className="mt-3 flex justify-end gap-2 border-t border-line pt-3">
                   {s.status === "graded" && <ActionButton action={reopenSubmission.bind(null, s._id)} confirm className="btn-ghost"><RotateCcw className="size-3.5" /> {t("admin.grading.reopen")}</ActionButton>}
@@ -91,6 +95,7 @@ export default async function GradingPage({ searchParams }) {
                       <p className="label">{t("assignments.yourAnswer")}</p>
                       <div className="prose-text max-h-72 overflow-y-auto rounded-lg border border-line bg-canvas/50 p-4">{s.text || "—"}</div>
                       {s.linkUrl && <a href={s.linkUrl} target="_blank" rel="noopener noreferrer" className="link mt-2 inline-flex items-center gap-1 text-sm"><ExternalLink className="size-4" /> {s.linkUrl}</a>}
+                      <AttachmentList files={s.attachments} t={t} className="mt-2" />
                     </div>
                     <label className="block">
                       <span className="label">{t("assignments.grade")} (0–{s.assignment.maxPoints})</span>
@@ -101,6 +106,11 @@ export default async function GradingPage({ searchParams }) {
                       <span className="label">{t("assignments.feedback")}</span>
                       <textarea name="feedback" rows={5} defaultValue={s.feedback} className="input" placeholder={t("admin.grading.feedbackPlaceholder")} />
                     </label>
+                    <div className="sm:col-span-2">
+                      <span className="label">{t("files.feedbackFiles")}</span>
+                      <FileUploader name="feedbackAttachments" scope="feedback" courseId={s.course?._id} studentId={s.student._id} initial={s.feedbackAttachments || []} enabled={isStorageConfigured()} max={5} compact />
+                      <span className="hint block">{t("files.feedbackHint")}</span>
+                    </div>
                   </FormModal>
                 </div>
               </div>

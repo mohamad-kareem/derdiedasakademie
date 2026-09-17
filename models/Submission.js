@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { AttachmentSchema } from "./attachment";
 
 const SubmissionSchema = new mongoose.Schema(
   {
@@ -7,6 +8,8 @@ const SubmissionSchema = new mongoose.Schema(
     student: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     text: { type: String, default: "" },
     linkUrl: { type: String, default: "" },
+    attachments: [AttachmentSchema],
+    feedbackAttachments: [AttachmentSchema],
     status: { type: String, enum: ["submitted", "graded"], default: "submitted" },
     grade: { type: Number },
     feedback: { type: String, default: "" },

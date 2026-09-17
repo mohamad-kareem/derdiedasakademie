@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { AttachmentSchema } from "./attachment";
 
 const AnnouncementSchema = new mongoose.Schema(
   {
@@ -7,6 +8,7 @@ const AnnouncementSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     body: { type: String, default: "" },
     pinned: { type: Boolean, default: false },
+    attachments: [AttachmentSchema],
   },
   { timestamps: true },
 );

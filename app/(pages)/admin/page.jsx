@@ -30,7 +30,7 @@ export default async function AdminOverview() {
     Submission.countDocuments({ status: "submitted" }),
     Inquiry.countDocuments({ status: "new" }),
     Enrollment.find({ status: "pending" }).populate("student", "name email level").populate("course", "title level").sort({ createdAt: -1 }).limit(6).lean(),
-    Lesson.find({ startsAt: { $gte: hoursAgo(2) } }).populate("course", "title level meetingUrl").sort({ startsAt: 1 }).limit(6).lean(),
+    Lesson.find({ startsAt: { $gte: hoursAgo(2) } }).populate("course", "title level meetingUrl classroom").sort({ startsAt: 1 }).limit(6).lean(),
     Course.find({ status: "published", endDate: { $gte: new Date() } }).sort({ startDate: 1 }).limit(6).lean(),
     Enrollment.aggregate([{ $match: { status: "active" } }, { $group: { _id: "$course", n: { $sum: 1 } } }]),
     Submission.find({ status: "submitted" }).populate("student", "name").populate("assignment", "title").sort({ createdAt: -1 }).limit(5).lean(),
@@ -71,7 +71,7 @@ export default async function AdminOverview() {
             )) : <EmptyState icon={<Layers className="size-5" />} title={t("admin.overview.noRequests")} />}
           </Panel>
           <Panel title={t("admin.overview.upcoming")} bodyClassName="divide-y divide-line">
-            {lessons.length ? plain(lessons).map((l) => <LessonItem key={l._id} lesson={l} t={t} locale={locale} showCourse />) : <EmptyState icon={<CalendarDays className="size-5" />} title={t("student.overview.noSessions")} />}
+            {lessons.length ? plain(lessons).map((l) => <LessonItem key={l._id} lesson={l} t={t} locale={locale} showCourse isTeacher />) : <EmptyState icon={<CalendarDays className="size-5" />} title={t("student.overview.noSessions")} />}
           </Panel>
         </div>
         <div className="space-y-6">

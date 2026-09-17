@@ -12,6 +12,8 @@ import Submission from "@/models/Submission";
 import { LEVELS } from "@/lib/constants";
 import { str, isId, fail, done } from "@/lib/validate";
 import { safeUrl } from "@/lib/utils";
+import { parseAttachments, removedKeys } from "@/lib/access";
+import { deleteKeys } from "@/lib/storage";
 
 function refresh() {
   revalidatePath("/", "layout");
@@ -66,11 +68,14 @@ export async function submitAssignment(assignmentId, formData) {
   if (!user || !isId(assignmentId)) return fail("errors.generic");
   const text = str(formData, "text", 20000);
   const linkUrl = safeUrl(str(formData, "linkUrl", 1000));
-  if (!text && !linkUrl) return fail("errors.submissionEmpty");
 
   await connectDB();
   const assignment = await Assignment.findById(assignmentId).lean();
   if (!assignment) return fail("errors.notFound");
+  const attachments = parseAttachments(formData, "attachments", `submissions/${assignment.course}/${user.id}/`, 10).filter(
+    (a) => !a.key.includes("/feedback"),
+  );
+  if (!text && !linkUrl && !attachments.length) return fail("errors.submissionEmpty");
   const enrolled = await Enrollment.exists({
     student: user.id,
     course: assignment.course,
@@ -82,11 +87,13 @@ export async function submitAssignment(assignmentId, formData) {
   if (existing?.status === "graded") return fail("errors.alreadyGraded");
 
   if (existing) {
+    await deleteKeys(removedKeys(existing.attachments, attachments));
     existing.text = text;
     existing.linkUrl = linkUrl;
+    existing.attachments = attachments;
     await existing.save();
   } else {
-    await Submission.create({ assignment: assignmentId, course: assignment.course, student: user.id, text, linkUrl });
+    await Submission.create({ assignment: assignmentId, course: assignment.course, student: user.id, text, linkUrl, attachments });
   }
   refresh();
   return done("assignments.submitted");
