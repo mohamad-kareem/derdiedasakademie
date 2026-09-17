@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Die DerDieDas Akademie — Online German Academy Platform
 
-## Getting Started
+Next.js 16 · React 19 · Tailwind CSS 4 · MongoDB (Mongoose) · English / Deutsch / العربية (RTL)
 
-First, run the development server:
+## Setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. `npm install`
+2. Create `.env.local` (see `.env.example`):
+   - `MONGODB_URI` – your MongoDB connection string
+   - `JWT_SECRET` – a long random string
+   - `ADMIN_EMAILS` – the teacher's email (comma-separate several)
+3. `npm run dev` → http://localhost:3000
+4. Register with the email from `ADMIN_EMAILS` → you land in the admin area at `/admin`.
+   (If that account already exists, just log in — it is promoted automatically.)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What's inside
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+**Public website** — landing page (levels A1–C1, method, features, upcoming courses, about, FAQ, contact form),
+course catalogue with level filter, course detail with enrollment request, login/register. Language switcher (EN default, DE, AR with right-to-left layout).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Student portal** (`/dashboard`) — overview (next sessions with live "Join" button, open homework, announcements, average grade),
+my courses (status + payment), course room (sessions, recordings, materials, assignments, announcements, progress),
+assignments (submit text + file link, see grade & feedback), profile & password, printable certificate.
 
-## Learn More
+**Admin** (`/admin`) — overview stats (students, pending requests, revenue, grading queue), courses (create / edit / publish / archive),
+per-course management (sessions with materials & recordings, roster, add student manually, assignments, announcements, settings),
+enrollments (approve / reject / mark paid / complete → certificate), students (search, detail, level, notes, disable, reset password),
+grading queue, global announcements, website inquiries, account settings.
 
-To learn more about Next.js, take a look at the following resources:
+## Where to edit things
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| What | File |
+| --- | --- |
+| Contact email, phone, social links | `lib/site.js` |
+| All texts (3 languages) | `lib/i18n/en.js`, `de.js`, `ar.js` |
+| Colors & fonts | `app/globals.css`, `app/layout.js` |
+| Database models | `models/` |
+| Server logic (forms/actions) | `app/actions/` |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Class times are entered and shown in academy time (Europe/Berlin by default).
+Payments are tracked manually (mark paid); files are shared as links (Google Drive, Dropbox, …).
 
-## Deploy on Vercel
+## Folders you can delete (old version, now unused)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`app/(pages)/LandingPage`, `app/(pages)/choose-course`, `app/(pages)/dashboard/admin`, `app/(components)`,
+`app/api/auth`, `app/api/course-registration`, `models/CourseRegistration.js`.
+They were replaced by redirects/stubs so nothing breaks if you keep them.

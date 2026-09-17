@@ -1,26 +1,147 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-arabic: var(--font-plex-arabic), var(--font-inter), system-ui, sans-serif;
+
+  --color-navy-950: #0a1526;
+  --color-navy-900: #0f1e35;
+  --color-navy-800: #172a47;
+  --color-navy-700: #22385c;
+  --color-navy-600: #34507a;
+  --color-navy-100: #e3e8f0;
+  --color-navy-50: #f1f4f8;
+
+  --color-gold-600: #9c6f22;
+  --color-gold-500: #b8862f;
+  --color-gold-400: #cf9d45;
+  --color-gold-100: #f3e6cc;
+  --color-gold-50: #faf4e7;
+
+  --color-cream: #f6f2ea;
+  --color-paper: #fbfaf7;
+  --color-canvas: #f5f4f0;
+  --color-ink: #18212f;
+  --color-muted: #5d6675;
+  --color-line: #e6e1d7;
+
+  --color-flag-red: #dd0000;
+  --color-flag-gold: #ffce00;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-paper text-ink font-sans;
+  }
+  [dir="rtl"] body,
+  [dir="rtl"] .font-display {
+    font-family: var(--font-arabic);
+  }
+  [dir="rtl"] .font-display {
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  ::selection {
+    @apply bg-gold-100 text-navy-900;
+  }
+  summary::-webkit-details-marker {
+    display: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+  .btn {
+    @apply inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-600 disabled:pointer-events-none disabled:opacity-60;
+  }
+  .btn-sm {
+    @apply h-8 gap-1.5 px-3 text-xs;
+  }
+  .btn-lg {
+    @apply h-12 px-6 text-[15px];
+  }
+  .btn-primary {
+    @apply bg-navy-900 text-white hover:bg-navy-800;
+  }
+  .btn-gold {
+    @apply bg-gold-500 text-white hover:bg-gold-600;
+  }
+  .btn-outline {
+    @apply border border-line bg-white text-ink hover:border-navy-600/40 hover:bg-cream;
+  }
+  .btn-ghost {
+    @apply text-muted hover:bg-navy-50 hover:text-ink;
+  }
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700;
+  }
+  .btn-light {
+    @apply bg-white text-navy-900 hover:bg-cream;
+  }
+  .input {
+    @apply block h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink placeholder:text-muted/60 transition outline-none focus:border-navy-600 focus:ring-3 focus:ring-navy-600/10 disabled:bg-canvas;
+  }
+  textarea.input {
+    @apply h-auto min-h-24 py-2 leading-relaxed;
+  }
+  select.input {
+    @apply pe-8;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-semibold text-ink/80;
+  }
+  .hint {
+    @apply mt-1 text-xs text-muted;
+  }
+  .card {
+    @apply rounded-xl border border-line bg-white;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold leading-5;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-gold-500;
+  }
+  [dir="rtl"] .eyebrow {
+    @apply tracking-normal;
+  }
+  .link {
+    @apply font-semibold text-navy-700 underline-offset-4 hover:underline;
+  }
+  .flag-stripe {
+    background: linear-gradient(90deg, #111 0 33.33%, var(--color-flag-red) 33.33% 66.66%, var(--color-flag-gold) 66.66%);
+  }
+  .data-table {
+    @apply w-full text-sm;
+  }
+  .data-table th {
+    @apply border-b border-line bg-canvas/60 px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-muted;
+  }
+  .data-table td {
+    @apply border-b border-line/70 px-4 py-3 align-middle;
+  }
+  .data-table tr:last-child td {
+    @apply border-b-0;
+  }
+  .prose-text {
+    @apply whitespace-pre-line text-sm leading-relaxed text-ink/85;
+  }
+}
+
+@page {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
 }
