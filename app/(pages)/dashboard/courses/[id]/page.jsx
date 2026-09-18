@@ -89,7 +89,7 @@ export default async function CourseRoomPage({ params }) {
           <div className="p-4">
             <p className="text-xs text-muted">{t("student.room.progress")}</p>
             <div className="mt-2 flex items-center gap-3">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-canvas"><div className="h-full rounded-full bg-gold-500" style={{ width: `${progress}%` }} /></div>
+              <div className="h-1.5 flex-1 overflow-hidden bg-canvas"><div className="h-full rounded-full bg-gold-500" style={{ width: `${progress}%` }} /></div>
               <span className="text-sm font-semibold text-navy-900">{progress}%</span>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Inbox, Mail, Phone, Trash2 } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/ui/Blocks";
+import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import ActionButton from "@/components/ui/ActionButton";
 import { requireAdmin } from "@/lib/auth";
@@ -22,10 +22,12 @@ export default async function InquiriesPage({ searchParams }) {
 
   return (
     <>
-      <PageHeader title={t("admin.nav.inquiries")} description={t("admin.inquiries.subtitle")} />
-      <div className="mb-4 flex flex-wrap gap-1 rounded-lg border border-line bg-white p-1 sm:inline-flex">
+      <PageHeader title={t("admin.nav.inquiries")} description={t("admin.inquiries.subtitle")} >
+        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.inquiries")]} />
+      </PageHeader>
+      <div className="mb-4 flex flex-wrap gap-1 rounded-[3px] border border-line bg-white p-1 sm:inline-flex">
         {FILTERS.map((s) => (
-          <Link key={s} href={`/admin/inquiries?status=${s}`} className={cn("rounded-md px-3 py-1.5 text-xs font-medium", status === s ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
+          <Link key={s} href={`/admin/inquiries?status=${s}`} className={cn("rounded-[3px] px-3 py-1.5 text-xs font-medium", status === s ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
             {s === "all" ? t("common.all") : t(`status.${s}`)}
           </Link>
         ))}
@@ -47,7 +49,7 @@ export default async function InquiriesPage({ searchParams }) {
               <a href={`mailto:${q.email}`} className="link inline-flex items-center gap-1.5 text-xs"><Mail className="size-3.5" /> {q.email}</a>
               {q.phone && <a href={`tel:${q.phone}`} className="link inline-flex items-center gap-1.5 text-xs" dir="ltr"><Phone className="size-3.5" /> {q.phone}</a>}
             </div>
-            <p className="prose-text mt-3 flex-1 rounded-md bg-canvas/60 p-3 text-[13px]">{q.message || "—"}</p>
+            <p className="prose-text mt-3 flex-1 rounded-[3px] bg-canvas/60 p-3 text-[13px]">{q.message || "—"}</p>
             <div className="mt-3 flex flex-wrap justify-end gap-1.5 border-t border-line pt-3">
               {q.status !== "contacted" && <ActionButton action={setInquiryStatus.bind(null, q._id, "contacted")}>{t("admin.inquiries.markContacted")}</ActionButton>}
               {q.status !== "closed" && <ActionButton action={setInquiryStatus.bind(null, q._id, "closed")}>{t("admin.inquiries.close")}</ActionButton>}

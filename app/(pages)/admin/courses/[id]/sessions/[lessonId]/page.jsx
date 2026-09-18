@@ -94,7 +94,7 @@ export default async function SessionReportPage({ params }) {
                       return (
                         <li key={i} className="flex items-center gap-2 text-xs">
                           <span className="w-40 truncate" dir="auto">{p.correctIndex === i && <CheckCircle2 className="me-1 inline size-3.5 text-emerald-600" />}{o}</span>
-                          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-canvas"><span className="block h-full bg-navy-700" style={{ width: `${total ? (n / total) * 100 : 0}%` }} /></span>
+                          <span className="h-1.5 flex-1 overflow-hidden bg-canvas"><span className="block h-full bg-navy-700" style={{ width: `${total ? (n / total) * 100 : 0}%` }} /></span>
                           <span className="w-10 text-end text-muted">{n}</span>
                         </li>
                       );

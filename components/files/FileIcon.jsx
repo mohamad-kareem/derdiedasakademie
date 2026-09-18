@@ -16,7 +16,7 @@ const MAP = {
 export default function FileIcon({ file, className }) {
   const { icon: I, cls } = MAP[fileKind(file)];
   return (
-    <span className={cn("flex shrink-0 items-center justify-center rounded-md", cls, className || "size-9")}>
+    <span className={cn("flex shrink-0 items-center justify-center rounded-[3px]", cls, className || "size-9")}>
       <I className="size-4" />
     </span>
   );

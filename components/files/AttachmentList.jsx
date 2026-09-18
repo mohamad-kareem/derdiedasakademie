@@ -12,7 +12,7 @@ export default function AttachmentList({ files = [], t, className, dense = false
         const kind = fileKind(f);
         const previewable = kind === "pdf" || kind === "image";
         return (
-          <li key={f.key} className={cn("rounded-lg border border-line bg-white", (kind === "audio" || kind === "video") && "sm:col-span-2")}>
+          <li key={f.key} className={cn("rounded-[3px] border border-line bg-white", (kind === "audio" || kind === "video") && "sm:col-span-2")}>
             <div className="flex items-center gap-3 px-3 py-2">
               <FileIcon file={f} />
               <div className="min-w-0 flex-1">
@@ -35,7 +35,7 @@ export default function AttachmentList({ files = [], t, className, dense = false
             )}
             {kind === "video" && (
               <div className="border-t border-line p-2">
-                <video controls preload="none" src={fileUrl(f, { inline: true })} className="aspect-video w-full rounded-md bg-black" />
+                <video controls preload="none" src={fileUrl(f, { inline: true })} className="aspect-video w-full rounded-[3px] bg-black" />
               </div>
             )}
           </li>

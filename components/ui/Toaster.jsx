@@ -27,7 +27,7 @@ export default function Toaster() {
         <div
           key={i.id}
           className={cn(
-            "pointer-events-auto flex max-w-md items-start gap-2 rounded-lg px-4 py-3 text-sm font-medium shadow-xl",
+            "pointer-events-auto flex max-w-md items-start gap-2 rounded-[3px] px-4 py-3 text-sm font-medium shadow-sm",
             i.type === "error" ? "bg-red-600 text-white" : "bg-navy-900 text-white",
           )}
         >

@@ -52,7 +52,7 @@ export default function FileUploader({ name = "attachments", scope, courseId, st
   }
 
   if (!enabled) {
-    return <p className="rounded-md border border-dashed border-line bg-canvas/50 px-3 py-2.5 text-xs text-muted">{t("files.notConfigured")}</p>;
+    return <p className="rounded-[3px] border border-dashed border-line bg-canvas/50 px-3 py-2.5 text-xs text-muted">{t("files.notConfigured")}</p>;
   }
 
   return (
@@ -67,7 +67,7 @@ export default function FileUploader({ name = "attachments", scope, courseId, st
           onDragLeave={() => setDrag(false)}
           onDrop={(e) => { e.preventDefault(); setDrag(false); add(e.dataTransfer.files); }}
           className={cn(
-            "flex w-full items-center justify-center gap-2 rounded-lg border border-dashed text-sm transition",
+            "flex w-full items-center justify-center gap-2 rounded-[3px] border border-dashed text-sm transition",
             compact ? "px-3 py-2" : "flex-col px-4 py-5",
             drag ? "border-navy-600 bg-navy-50 text-navy-900" : "border-line bg-canvas/40 text-muted hover:border-navy-600/40 hover:bg-canvas",
           )}
@@ -80,12 +80,12 @@ export default function FileUploader({ name = "attachments", scope, courseId, st
       {files.length > 0 && (
         <ul className="mt-2 space-y-1.5">
           {files.map((f) => (
-            <li key={f.id || f.key} className="flex items-center gap-2.5 rounded-md border border-line bg-white px-2.5 py-2">
+            <li key={f.id || f.key} className="flex items-center gap-2.5 rounded-[3px] border border-line bg-white px-2.5 py-2">
               <FileIcon file={f} className="size-8" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-ink" dir="ltr">{f.name}</p>
                 {f.status === "uploading" && (
-                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-canvas"><div className="h-full bg-navy-700 transition-all" style={{ width: `${f.progress}%` }} /></div>
+                  <div className="mt-1 h-1 overflow-hidden bg-canvas"><div className="h-full bg-navy-700 transition-all" style={{ width: `${f.progress}%` }} /></div>
                 )}
                 {f.status === "done" && <p className="text-[11px] text-muted">{formatBytes(f.size)}</p>}
                 {f.status === "error" && <p className="flex items-center gap-1 text-[11px] text-red-600"><AlertCircle className="size-3" /> {t(f.error)}</p>}

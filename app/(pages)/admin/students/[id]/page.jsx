@@ -40,7 +40,7 @@ export default async function StudentDetailPage({ params }) {
         <ArrowLeft className="size-4 rtl:rotate-180" /> {t("admin.nav.students")}
       </Link>
       <div className="card mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-navy-900 text-lg font-semibold text-white">{initials(student.name)}</span>
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-[2px] bg-navy-900 text-lg font-semibold text-white">{initials(student.name)}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold text-navy-900">{student.name}</h1>

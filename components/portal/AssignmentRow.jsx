@@ -21,7 +21,7 @@ export default function AssignmentRow({ assignment, showCourse = true, storage =
     <>
       <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 items-start gap-3">
-          <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-gold-50 text-gold-600"><ClipboardList className="size-4" /></span>
+          <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-[3px] bg-gold-50 text-gold-600"><ClipboardList className="size-4" /></span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold text-ink">{assignment.title}</p>
@@ -50,7 +50,7 @@ export default function AssignmentRow({ assignment, showCourse = true, storage =
           {assignment.instructions && (
             <div>
               <p className="label">{t("assignments.instructions")}</p>
-              <div className="prose-text rounded-lg border border-line bg-canvas/50 p-4">{assignment.instructions}</div>
+              <div className="prose-text rounded-[3px] border border-line bg-canvas/50 p-4">{assignment.instructions}</div>
             </div>
           )}
           {assignment.attachments?.length > 0 && (
@@ -66,7 +66,7 @@ export default function AssignmentRow({ assignment, showCourse = true, storage =
           )}
           {graded ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg bg-emerald-50 p-4">
+              <div className="flex items-center justify-between rounded-[3px] bg-emerald-50 p-4">
                 <span className="text-sm font-medium text-emerald-800">{t("assignments.grade")}</span>
                 <span className="text-2xl font-semibold text-emerald-800" dir="ltr">{s.grade} / {assignment.maxPoints}</span>
               </div>
@@ -79,12 +79,12 @@ export default function AssignmentRow({ assignment, showCourse = true, storage =
               {s.feedback && (
                 <div>
                   <p className="label flex items-center gap-1.5"><MessageSquareText className="size-3.5" /> {t("assignments.feedback")}</p>
-                  <div className="prose-text rounded-lg border border-line p-4">{s.feedback}</div>
+                  <div className="prose-text rounded-[3px] border border-line p-4">{s.feedback}</div>
                 </div>
               )}
               <div>
                 <p className="label">{t("assignments.yourAnswer")}</p>
-                <div className="prose-text rounded-lg border border-line bg-canvas/50 p-4">{s.text || "—"}</div>
+                <div className="prose-text rounded-[3px] border border-line bg-canvas/50 p-4">{s.text || "—"}</div>
                 {s.linkUrl && <a href={s.linkUrl} target="_blank" rel="noopener noreferrer" className="link mt-2 inline-block text-sm">{s.linkUrl}</a>}
                 <AttachmentList files={s.attachments} t={t} className="mt-2" />
               </div>

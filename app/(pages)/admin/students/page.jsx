@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Search, Users } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/ui/Blocks";
+import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import { requireAdmin } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
@@ -35,7 +35,9 @@ export default async function StudentsPage({ searchParams }) {
 
   return (
     <>
-      <PageHeader title={t("admin.nav.students")} description={t("admin.students.subtitle", { n: students.length })} />
+      <PageHeader title={t("admin.nav.students")} description={t("admin.students.subtitle", { n: students.length })} >
+        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.students")]} />
+      </PageHeader>
       <form className="mb-4 flex flex-col gap-2 sm:flex-row" action="/admin/students">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
@@ -58,7 +60,7 @@ export default async function StudentsPage({ searchParams }) {
                   <tr key={s._id} className="hover:bg-canvas/40">
                     <td>
                       <Link href={`/admin/students/${s._id}`} className="flex items-center gap-3">
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-navy-50 text-xs font-semibold text-navy-700">{initials(s.name)}</span>
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-[2px] bg-navy-50 text-xs font-semibold text-navy-700">{initials(s.name)}</span>
                         <span><span className="block font-medium text-ink hover:underline">{s.name}</span><span className="block text-xs text-muted">{s.email}</span></span>
                       </Link>
                     </td>

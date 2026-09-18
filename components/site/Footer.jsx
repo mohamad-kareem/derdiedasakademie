@@ -21,7 +21,7 @@ export default async function Footer() {
               { href: site.tiktok, icon: FaTiktok, label: "TikTok" },
               { href: site.facebook, icon: FaFacebookF, label: "Facebook" },
             ].map(({ href, icon: I, label }) => (
-              <a key={label} href={href} aria-label={label} className="flex size-9 items-center justify-center rounded-md border border-white/10 text-white/70 transition hover:border-gold-400 hover:text-gold-400">
+              <a key={label} href={href} aria-label={label} className="flex size-9 items-center justify-center rounded-[3px] border border-white/10 text-white/70 transition hover:border-gold-400 hover:text-gold-400">
                 <I className="size-3.5" />
               </a>
             ))}

@@ -97,7 +97,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
           {TABS.map((k) => (
             <Link key={k} href={`/admin/courses/${id}?tab=${k}`} className={cn("-mb-px whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium", tab === k ? "border-navy-900 text-navy-900" : "border-transparent text-muted hover:text-ink")}>
               {t(`admin.course.tabs.${k}`)}
-              {tabCount[k] !== undefined && <span className="ms-1.5 rounded-full bg-canvas px-1.5 text-[11px] text-muted">{tabCount[k]}</span>}
+              {tabCount[k] !== undefined && <span className="ms-1.5 rounded-[2px] bg-canvas px-1.5 text-[11px] text-muted">{tabCount[k]}</span>}
             </Link>
           ))}
         </div>
@@ -117,7 +117,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
             const past = new Date(l.startsAt).getTime() + l.durationMin * 60000 < now;
             return (
               <div key={l._id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
-                <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold", past ? "bg-canvas text-muted" : "bg-navy-900 text-white")}>{i + 1}</span>
+                <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-[2px] text-xs font-semibold", past ? "bg-canvas text-muted" : "bg-navy-900 text-white")}>{i + 1}</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-ink">{l.title}</p>
                   <p className="text-xs text-muted">{formatDateTime(l.startsAt, locale)} · {l.durationMin} {t("lessons.min")}</p>
@@ -226,7 +226,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
             const ungraded = subs.filter((s) => s.status === "submitted").length;
             return (
               <div key={a._id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gold-50 text-gold-600"><ClipboardList className="size-4" /></span>
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-[3px] bg-gold-50 text-gold-600"><ClipboardList className="size-4" /></span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-ink">{a.title}</p>
                   <p className="text-xs text-muted">

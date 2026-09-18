@@ -13,7 +13,7 @@ export default async function AuthLayout({ title, subtitle, children }) {
         <Image src="/logo/login.jpg" alt="" fill priority sizes="50vw" className="object-cover opacity-55" />
         <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/40 to-navy-950/20" />
         <div className="absolute inset-x-0 bottom-0 p-12 text-white">
-          <div className="flag-stripe mb-6 h-1 w-16 rounded-full" />
+          <div className="flag-stripe mb-6 h-[3px] w-20" />
           <p className="max-w-md font-display text-3xl font-semibold leading-snug">{t("auth.quote")}</p>
           <p className="mt-4 max-w-md text-sm text-white/65">{t("auth.quoteSub")}</p>
         </div>

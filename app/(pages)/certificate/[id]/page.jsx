@@ -32,7 +32,7 @@ export default async function CertificatePage({ params }) {
         <Link href={back} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-navy-900"><ArrowLeft className="size-4 rtl:rotate-180" /> {t("common.back")}</Link>
         <PrintButton label={t("certificate.print")} />
       </div>
-      <div className="mx-auto aspect-[1.414/1] max-w-4xl bg-white p-3 shadow-xl print:shadow-none" dir="ltr">
+      <div className="mx-auto aspect-[1.414/1] max-w-4xl bg-white p-3 shadow-sm print:shadow-none" dir="ltr">
         <div className="relative flex h-full flex-col items-center justify-between border-[6px] border-double border-navy-900 px-10 py-10 text-center">
           <div className="flag-stripe absolute inset-x-0 top-0 h-1.5" />
           <div className="flex flex-col items-center">

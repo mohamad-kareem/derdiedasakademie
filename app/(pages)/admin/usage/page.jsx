@@ -1,5 +1,5 @@
 import { Video, Database, HardDrive, Clock3, CalendarCheck2, Radio, Gauge, TriangleAlert, Terminal } from "lucide-react";
-import { PageHeader, StatCard, Panel, EmptyState } from "@/components/ui/Blocks";
+import { PageHeader, StatCard, Panel, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge } from "@/components/ui/Badges";
 import { Meter, DayBars, Num, usageState } from "@/components/admin/UsageBlocks";
 import LiveRefresh from "@/components/admin/LiveRefresh";
@@ -26,7 +26,9 @@ export default async function AdminUsagePage() {
   return (
     <>
       <LiveRefresh seconds={20} />
-      <PageHeader title={t("admin.usage.title")} description={t("admin.usage.subtitle")} />
+      <PageHeader title={t("admin.usage.title")} description={t("admin.usage.subtitle")} >
+        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.usage")]} />
+      </PageHeader>
 
       {/* ---------------------------------------------------------- allowances */}
       <div className="grid gap-4 lg:grid-cols-3">
@@ -43,7 +45,7 @@ export default async function AdminUsagePage() {
           />
         ) : (
           <section className="card flex items-start gap-3 p-4 lg:col-span-1">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-gold-50 text-gold-600">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-[3px] bg-gold-50 text-gold-600">
               <TriangleAlert className="size-5" />
             </span>
             <div className="min-w-0">
@@ -54,7 +56,7 @@ export default async function AdminUsagePage() {
                 {traffic.configured === false ? t("admin.usage.traffic.notSetUpText") : traffic.error}
               </p>
               {traffic.configured === false && (
-                <code className="mt-2 flex items-center gap-1.5 overflow-x-auto rounded-md bg-canvas px-2 py-1.5 text-[11px] text-ink">
+                <code className="mt-2 flex items-center gap-1.5 overflow-x-auto rounded-[3px] bg-canvas px-2 py-1.5 text-[11px] text-ink">
                   <Terminal className="size-3 shrink-0" />
                   sudo bash ~/video-server/usage-setup.sh
                 </code>

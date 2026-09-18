@@ -54,14 +54,14 @@ export function Meter({ label, valueText, limitText, percent, stateLabel, hint, 
       </p>
 
       <div
-        className="mt-3 h-2 w-full overflow-hidden rounded-full bg-canvas"
+        className="mt-3 h-2 w-full overflow-hidden bg-canvas"
         role="meter"
         aria-valuenow={percent}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label={label}
       >
-        <div className={cn("h-full rounded-full transition-[width]", bar)} style={{ width: `${Math.max(percent, percent > 0 ? 1.5 : 0)}%` }} />
+        <div className={cn("h-full transition-[width]", bar)} style={{ width: `${Math.max(percent, percent > 0 ? 1.5 : 0)}%` }} />
       </div>
 
       <p className="mt-2 text-xs text-muted">

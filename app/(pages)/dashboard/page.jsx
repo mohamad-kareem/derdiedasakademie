@@ -39,7 +39,7 @@ export default async function StudentOverview() {
       />
 
       {pending.length > 0 && (
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="mb-6 flex items-start gap-3 rounded-[3px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <Hourglass className="mt-0.5 size-4 shrink-0" />
           <p>{t("student.overview.pendingNotice", { courses: pending.map((e) => e.course.title).join(", ") })}</p>
         </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FileCheck2, ExternalLink, RotateCcw } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/ui/Blocks";
+import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import FormModal from "@/components/admin/FormModal";
 import ActionButton from "@/components/ui/ActionButton";
@@ -43,11 +43,13 @@ export default async function GradingPage({ searchParams }) {
 
   return (
     <>
-      <PageHeader title={t("admin.nav.grading")} description={t("admin.grading.subtitle")} />
+      <PageHeader title={t("admin.nav.grading")} description={t("admin.grading.subtitle")} >
+        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.grading")]} />
+      </PageHeader>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="flex rounded-lg border border-line bg-white p-1">
+        <div className="flex rounded-[3px] border border-line bg-white p-1">
           {["submitted", "graded"].map((s) => (
-            <Link key={s} href={href({ status: s })} className={cn("rounded-md px-3 py-1.5 text-xs font-medium", status === s ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
+            <Link key={s} href={href({ status: s })} className={cn("rounded-[3px] px-3 py-1.5 text-xs font-medium", status === s ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
               {t(`admin.grading.filters.${s}`)}
             </Link>
           ))}
@@ -76,7 +78,7 @@ export default async function GradingPage({ searchParams }) {
                   {s.status === "graded" ? <span className="text-lg font-semibold text-navy-900" dir="ltr">{s.grade}/{s.assignment.maxPoints}</span> : <StatusBadge status={late ? "missing" : "submitted"} label={late ? t("admin.grading.late") : t("assignments.state.submitted")} />}
                 </div>
                 <p className="mt-3 text-xs text-muted"><Link href={`/admin/students/${s.student._id}`} className="font-medium text-ink hover:underline">{s.student.name}</Link> · {formatDateTime(s.updatedAt, locale)}</p>
-                <div className="prose-text mt-2 line-clamp-4 flex-1 rounded-md bg-canvas/60 p-3 text-[13px]">{s.text || "—"}</div>
+                <div className="prose-text mt-2 line-clamp-4 flex-1 rounded-[3px] bg-canvas/60 p-3 text-[13px]">{s.text || "—"}</div>
                 {s.linkUrl && <a href={s.linkUrl} target="_blank" rel="noopener noreferrer" className="link mt-2 inline-flex items-center gap-1 text-xs"><ExternalLink className="size-3.5" /> {t("admin.grading.openLink")}</a>}
                 <AttachmentList files={s.attachments} t={t} dense className="mt-2" />
                 {s.status === "graded" && s.feedback && <p className="mt-2 line-clamp-2 border-s-2 border-gold-400 ps-2 text-xs text-muted">{s.feedback}</p>}
@@ -93,7 +95,7 @@ export default async function GradingPage({ searchParams }) {
                   >
                     <div className="sm:col-span-2">
                       <p className="label">{t("assignments.yourAnswer")}</p>
-                      <div className="prose-text max-h-72 overflow-y-auto rounded-lg border border-line bg-canvas/50 p-4">{s.text || "—"}</div>
+                      <div className="prose-text max-h-72 overflow-y-auto rounded-[3px] border border-line bg-canvas/50 p-4">{s.text || "—"}</div>
                       {s.linkUrl && <a href={s.linkUrl} target="_blank" rel="noopener noreferrer" className="link mt-2 inline-flex items-center gap-1 text-sm"><ExternalLink className="size-4" /> {s.linkUrl}</a>}
                       <AttachmentList files={s.attachments} t={t} className="mt-2" />
                     </div>

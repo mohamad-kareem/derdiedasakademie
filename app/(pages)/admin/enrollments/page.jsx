@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Layers } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/ui/Blocks";
+import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
 import { requireAdmin } from "@/lib/auth";
@@ -25,10 +25,12 @@ export default async function EnrollmentsPage({ searchParams }) {
 
   return (
     <>
-      <PageHeader title={t("admin.nav.enrollments")} description={t("admin.enroll.subtitle")} />
-      <div className="mb-4 flex flex-wrap gap-1 rounded-lg border border-line bg-white p-1 sm:inline-flex">
+      <PageHeader title={t("admin.nav.enrollments")} description={t("admin.enroll.subtitle")} >
+        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.enrollments")]} />
+      </PageHeader>
+      <div className="mb-4 flex flex-wrap gap-1 rounded-[3px] border border-line bg-white p-1 sm:inline-flex">
         {STATUSES.map((s) => (
-          <Link key={s} href={`/admin/enrollments?status=${s}`} className={cn("rounded-md px-3 py-1.5 text-xs font-medium", status === s ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
+          <Link key={s} href={`/admin/enrollments?status=${s}`} className={cn("rounded-[3px] px-3 py-1.5 text-xs font-medium", status === s ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
             {s === "all" ? t("common.all") : s === "unpaid" ? t("payment.unpaid") : t(`status.${s}`)}
           </Link>
         ))}

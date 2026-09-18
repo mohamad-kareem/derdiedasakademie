@@ -24,9 +24,9 @@ export default async function AssignmentsPage({ searchParams }) {
   return (
     <>
       <PageHeader title={t("student.nav.assignments")} description={t("student.assignments.subtitle")} />
-      <div className="mb-4 flex flex-wrap gap-1 rounded-lg border border-line bg-white p-1 sm:inline-flex">
+      <div className="mb-4 flex flex-wrap gap-1 rounded-[3px] border border-line bg-white p-1 sm:inline-flex">
         {FILTERS.map((f) => (
-          <Link key={f} href={`/dashboard/assignments?filter=${f}`} className={cn("rounded-md px-3 py-1.5 text-sm font-medium", filter === f ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
+          <Link key={f} href={`/dashboard/assignments?filter=${f}`} className={cn("rounded-[3px] px-3 py-1.5 text-sm font-medium", filter === f ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
             {t(`student.assignments.filters.${f}`)} <span className="ms-1 text-xs opacity-70">{counts[f]}</span>
           </Link>
         ))}

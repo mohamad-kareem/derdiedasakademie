@@ -1,5 +1,5 @@
 import { Plus, Megaphone, Pin, Pencil, Trash2 } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/ui/Blocks";
+import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge } from "@/components/ui/Badges";
 import FormModal from "@/components/admin/FormModal";
 import ActionButton from "@/components/ui/ActionButton";
@@ -33,11 +33,13 @@ export default async function AnnouncementsPage() {
             <AnnouncementFields t={t} courses={courses} />
           </FormModal>
         }
-      />
+      >
+        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.announcements")]} />
+      </PageHeader>
       <div className="card divide-y divide-line">
         {items.length ? items.map((a) => (
           <div key={a._id} className="flex gap-4 p-4">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-navy-50 text-navy-700">{a.pinned ? <Pin className="size-4" /> : <Megaphone className="size-4" />}</span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-[3px] bg-navy-50 text-navy-700">{a.pinned ? <Pin className="size-4" /> : <Megaphone className="size-4" />}</span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-ink">{a.title}</p>
               <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">

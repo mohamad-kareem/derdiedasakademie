@@ -46,13 +46,13 @@ export default function VocabPractice({ items }) {
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap gap-1 rounded-lg border border-line bg-white p-1 sm:inline-flex">
+      <div className="mb-5 flex flex-wrap gap-1 rounded-[3px] border border-line bg-white p-1 sm:inline-flex">
         {[
           { id: "cards", icon: Layers },
           { id: "quiz", icon: Target },
           { id: "list", icon: List },
         ].map(({ id, icon: I }) => (
-          <button key={id} type="button" onClick={() => setMode(id)} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium", mode === id ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
+          <button key={id} type="button" onClick={() => setMode(id)} className={cn("flex items-center gap-1.5 rounded-[3px] px-3 py-1.5 text-sm font-medium", mode === id ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
             <I className="size-4" /> {t(`vocab.modes.${id}`)}
           </button>
         ))}
@@ -60,7 +60,7 @@ export default function VocabPractice({ items }) {
 
       {mode === "cards" && card && (
         <div className="mx-auto max-w-xl">
-          <button type="button" onClick={() => setFlipped((f) => !f)} className="card flex aspect-[3/2] w-full flex-col items-center justify-center p-8 text-center transition hover:shadow-lg">
+          <button type="button" onClick={() => setFlipped((f) => !f)} className="card flex aspect-[3/2] w-full flex-col items-center justify-center p-8 text-center transition hover:shadow-sm">
             {!flipped ? (
               <>
                 <p className="text-4xl text-navy-900 sm:text-5xl"><Word v={card} big /></p>
@@ -103,7 +103,7 @@ export default function VocabPractice({ items }) {
                       key={a}
                       type="button"
                       onClick={() => answer(a)}
-                      className={cn("h-14 rounded-xl border-2 text-xl font-bold transition", correct ? "border-emerald-500 bg-emerald-50" : chosen ? "border-red-500 bg-red-50" : "border-line hover:border-navy-600/40")}
+                      className={cn("h-14 rounded-[3px] border-2 text-xl font-bold transition", correct ? "border-emerald-500 bg-emerald-50" : chosen ? "border-red-500 bg-red-50" : "border-line hover:border-navy-600/40")}
                       style={{ color: ARTICLE_COLORS[a] }}
                     >
                       {a}
