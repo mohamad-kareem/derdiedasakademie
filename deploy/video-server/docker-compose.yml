@@ -1,0 +1,27 @@
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml
+    network_mode: host
+    volumes:
+      - ./livekit.generated.yaml:/etc/livekit.yaml:ro
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      LK_DOMAIN: ${LK_DOMAIN}
+      LK_USAGE_TOKEN: ${LK_USAGE_TOKEN:-disabled}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /srv/ddd-usage:/srv/ddd-usage:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -57,7 +57,7 @@ Each course can use this classroom (default) or an external meeting link (Zoom/M
 1. Push the project to GitHub (don't commit `.env.local` — `.gitignore` already excludes it), then import the repo in Vercel.
 2. **Project → Settings → Environment Variables** — add all of these for *Production* and *Preview*:
    `MONGODB_URI`, `JWT_SECRET`, `ADMIN_EMAILS`, `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
-   (optional: `MAX_UPLOAD_MB`, `APP_TIMEZONE`)
+   (optional: `SERVER_USAGE_URL`, `SERVER_USAGE_TOKEN`, `MAX_UPLOAD_MB`, `APP_TIMEZONE`)
 3. MongoDB Atlas → **Network Access** → allow `0.0.0.0/0`, because Vercel has no fixed IP address.
 4. Deploy, then open `/register` with the admin email to create the teacher account on the live site.
 5. Camera and microphone need HTTPS — Vercel gives you that automatically.
@@ -68,6 +68,34 @@ sells courses, the *Pro* plan ($20/month) is the correct one. Everything else he
 
 Uploads are sent in ~3 MB pieces, which keeps them inside Vercel's request limit, and downloads stream
 from the database, so no extra configuration is needed.
+
+## 5. Optional: your own video server (no minute limits)
+
+The LiveKit free plan covers about nine group classes a month. For heavy daily teaching, run the
+video engine on your own machine — see **`deploy/video-server/README.md`** for a step-by-step guide
+(free Oracle Cloud server, install script, and the three values to change in Vercel).
+Nothing in the app changes; only `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`.
+
+## 6. Usage & limits (admin → Usage)
+
+`/admin/usage` answers "are we close to any limit?" with measured figures rather than guesses:
+
+| Shown | Where the number comes from | Against |
+| --- | --- | --- |
+| Video traffic this month | the video server counts every byte it sends (vnstat) | 10 TB Oracle free allowance |
+| Database storage | MongoDB's own statistics | 512 MB Atlas free tier |
+| Server disk | the video server | its own size |
+| Time in class, sessions, students | attendance records | — |
+
+It also projects the month end from the days so far, and shows what one person-minute of class
+actually costs in traffic — so a busier term can be forecast by multiplying, not guessing.
+
+Traffic measuring is off until you run **`sudo bash ~/video-server/usage-setup.sh`** on the video
+server once and add the two values it prints (`SERVER_USAGE_URL`, `SERVER_USAGE_TOKEN`) in Vercel.
+Without them the page still works; only the traffic panels are missing.
+
+The report is fetched at most once every 5 minutes and is protected by the token, so the figures
+are never public.
 
 ## Where to edit things
 

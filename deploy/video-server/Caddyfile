@@ -1,0 +1,20 @@
+# Free HTTPS certificate + secure WebSocket for the classroom.
+{$LK_DOMAIN} {
+	# Traffic report for the admin Usage page. Readable only with the shared token,
+	# so the numbers are never public. Written every 5 minutes by ddd-usage.py.
+	@usage path /usage.json
+	handle @usage {
+		@authorised header Authorization "Bearer {$LK_USAGE_TOKEN}"
+		handle @authorised {
+			root * /srv/ddd-usage
+			file_server
+		}
+		handle {
+			respond "unauthorized" 401
+		}
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:7880
+	}
+}

@@ -21,6 +21,7 @@ export default async function AdminLayout({ children }) {
     { href: "/admin/grading", label: t("admin.nav.grading"), icon: "grading", badge: toGrade },
     { href: "/admin/announcements", label: t("admin.nav.announcements"), icon: "announcements" },
     { href: "/admin/inquiries", label: t("admin.nav.inquiries"), icon: "inbox", badge: inquiries },
+    { href: "/admin/usage", label: t("admin.nav.usage"), icon: "usage" },
     { href: "/admin/settings", label: t("admin.nav.settings"), icon: "settings" },
   ];
   return (
