@@ -1,45 +1,57 @@
 import { cn } from "@/lib/utils";
 
+/**
+ * Registry marks. Square, bordered and restrained: a level or a status should
+ * be legible at a glance in a dense table without competing with the text.
+ */
+
 const levelStyles = {
-  A1: "bg-emerald-50 text-emerald-700 ring-emerald-600/15",
-  A2: "bg-teal-50 text-teal-700 ring-teal-600/15",
-  B1: "bg-sky-50 text-sky-700 ring-sky-600/15",
-  B2: "bg-indigo-50 text-indigo-700 ring-indigo-600/15",
-  C1: "bg-amber-50 text-amber-800 ring-amber-600/20",
+  A1: "border-emerald-700/25 bg-emerald-50 text-emerald-800",
+  A2: "border-teal-700/25 bg-teal-50 text-teal-800",
+  B1: "border-sky-700/25 bg-sky-50 text-sky-800",
+  B2: "border-indigo-700/25 bg-indigo-50 text-indigo-800",
+  C1: "border-amber-700/30 bg-amber-50 text-amber-900",
 };
 
 export function LevelBadge({ level, className }) {
   return (
-    <span className={cn("badge ring-1 ring-inset font-bold tracking-wide", levelStyles[level] || "bg-canvas text-muted ring-line", className)} dir="ltr">
-      {level === "unknown" ? "?" : level}
+    <span
+      className={cn(
+        "badge min-w-[26px] justify-center border font-bold tracking-[0.04em]",
+        levelStyles[level] || "border-line-strong bg-cream text-muted",
+        className,
+      )}
+      dir="ltr"
+    >
+      {level === "unknown" ? "—" : level}
     </span>
   );
 }
 
 const statusStyles = {
-  pending: "bg-amber-50 text-amber-800",
-  active: "bg-emerald-50 text-emerald-700",
-  completed: "bg-navy-50 text-navy-700",
-  rejected: "bg-red-50 text-red-700",
-  cancelled: "bg-stone-100 text-stone-600",
-  paid: "bg-emerald-50 text-emerald-700",
-  unpaid: "bg-red-50 text-red-700",
-  draft: "bg-stone-100 text-stone-600",
-  published: "bg-emerald-50 text-emerald-700",
-  archived: "bg-stone-100 text-stone-500",
-  submitted: "bg-amber-50 text-amber-800",
-  graded: "bg-emerald-50 text-emerald-700",
-  missing: "bg-red-50 text-red-700",
-  new: "bg-sky-50 text-sky-700",
-  contacted: "bg-amber-50 text-amber-800",
-  closed: "bg-stone-100 text-stone-600",
-  live: "bg-red-50 text-red-700",
+  pending: "border-amber-700/25 bg-amber-50 text-amber-900",
+  active: "border-emerald-700/25 bg-emerald-50 text-emerald-800",
+  completed: "border-navy-600/25 bg-navy-50 text-navy-800",
+  rejected: "border-red-700/25 bg-red-50 text-red-800",
+  cancelled: "border-line-strong bg-cream text-muted",
+  paid: "border-emerald-700/25 bg-emerald-50 text-emerald-800",
+  unpaid: "border-red-700/25 bg-red-50 text-red-800",
+  draft: "border-line-strong bg-cream text-muted",
+  published: "border-emerald-700/25 bg-emerald-50 text-emerald-800",
+  archived: "border-line-strong bg-cream text-muted",
+  submitted: "border-amber-700/25 bg-amber-50 text-amber-900",
+  graded: "border-emerald-700/25 bg-emerald-50 text-emerald-800",
+  missing: "border-red-700/25 bg-red-50 text-red-800",
+  new: "border-sky-700/25 bg-sky-50 text-sky-800",
+  contacted: "border-amber-700/25 bg-amber-50 text-amber-900",
+  closed: "border-line-strong bg-cream text-muted",
+  live: "border-red-700/30 bg-red-50 text-red-800",
 };
 
 export function StatusBadge({ status, label, className }) {
   return (
-    <span className={cn("badge", statusStyles[status] || "bg-canvas text-muted", className)}>
-      <span className="size-1.5 rounded-full bg-current opacity-70" />
+    <span className={cn("badge border", statusStyles[status] || "border-line-strong bg-cream text-muted", className)}>
+      <span className="size-[5px] bg-current opacity-70" />
       {label}
     </span>
   );

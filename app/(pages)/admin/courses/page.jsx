@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Plus, BookOpen, CalendarDays, Users, ArrowRight } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/ui/Blocks";
+import { Plus, BookOpen, ArrowRight } from "lucide-react";
+import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import FormModal from "@/components/admin/FormModal";
 import { CourseFields } from "@/components/admin/Fields";
@@ -50,64 +50,109 @@ export default async function AdminCoursesPage({ searchParams }) {
         title={t("admin.nav.courses")}
         description={t("admin.courses.subtitle")}
         actions={
-          <FormModal defaultOpen={sp.new === "1"} trigger={<><Plus className="size-4" /> {t("admin.courses.new")}</>} title={t("admin.courses.new")} action={saveCourse.bind(null, null)} submitLabel={t("admin.courses.create")} size="lg">
+          <FormModal
+            defaultOpen={sp.new === "1"}
+            trigger={<><Plus className="size-3.5" /> {t("admin.courses.new")}</>}
+            title={t("admin.courses.new")}
+            action={saveCourse.bind(null, null)}
+            submitLabel={t("admin.courses.create")}
+            size="lg"
+          >
             <CourseFields t={t} />
           </FormModal>
         }
-      />
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex rounded-lg border border-line bg-white p-1">
-          {[null, "published", "draft", "archived"].map((s) => (
-            <Link key={s || "all"} href={qs({ status: s })} className={cn("rounded-md px-3 py-1.5 text-xs font-medium", status === s ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
-              {s ? t(`status.${s}`) : t("common.all")}
-            </Link>
-          ))}
+      >
+        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.courses")]} />
+      </PageHeader>
+
+      {/* ------------------------------------------------------------ filters */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-muted">{t("admin.fields.status")}</span>
+          <div className="toolbar">
+            {[null, "published", "draft", "archived"].map((s) => (
+              <Link key={s || "all"} href={qs({ status: s })} className={cn("toolbar-item", status === s && "toolbar-item-active")}>
+                {s ? t(`status.${s}`) : t("common.all")}
+              </Link>
+            ))}
+          </div>
         </div>
-        <div className="flex rounded-lg border border-line bg-white p-1">
-          {[null, ...LEVELS].map((l) => (
-            <Link key={l || "all"} href={qs({ level: l })} className={cn("rounded-md px-2.5 py-1.5 text-xs font-medium", level === l ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
-              {l || t("common.all")}
-            </Link>
-          ))}
+
+        <div className="flex items-center gap-2">
+          <span className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-muted">{t("admin.fields.level")}</span>
+          <div className="toolbar">
+            {[null, ...LEVELS].map((l) => (
+              <Link key={l || "all"} href={qs({ level: l })} className={cn("toolbar-item tabular", level === l && "toolbar-item-active")}>
+                {l || t("common.all")}
+              </Link>
+            ))}
+          </div>
         </div>
+
+        <p className="ms-auto text-[11.5px] text-muted tabular">
+          {t(courses.length === 1 ? "common.result" : "common.results", { n: courses.length })}
+        </p>
       </div>
 
+      {/* -------------------------------------------------------------- table */}
       <div className="card overflow-hidden">
         {courses.length ? (
           <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
+                  <th className="w-14">{t("admin.fields.level")}</th>
                   <th>{t("admin.fields.title")}</th>
-                  <th>{t("courses.dates")}</th>
-                  <th>{t("admin.courses.students")}</th>
-                  <th>{t("courses.price")}</th>
-                  <th>{t("admin.fields.status")}</th>
-                  <th />
+                  <th className="w-56">{t("courses.dates")}</th>
+                  <th className="w-40">{t("admin.courses.students")}</th>
+                  <th className="w-24">{t("courses.price")}</th>
+                  <th className="w-28">{t("admin.fields.status")}</th>
+                  <th className="w-24" />
                 </tr>
               </thead>
               <tbody>
                 {plain(courses).map((c) => {
                   const s = stat[c._id] || { active: 0, pending: 0 };
+                  const full = Math.min(100, Math.round((s.active / c.capacity) * 100));
                   return (
-                    <tr key={c._id} className="hover:bg-canvas/40">
+                    <tr key={c._id}>
                       <td>
-                        <Link href={`/admin/courses/${c._id}`} className="flex items-center gap-2.5">
-                          <LevelBadge level={c.level} />
-                          <span>
-                            <span className="block font-medium text-ink hover:underline">{c.title}</span>
-                            <span className="block text-xs text-muted">{t(`format.${c.format}`)}{c.schedule ? ` · ${c.schedule}` : ""}</span>
+                        <LevelBadge level={c.level} />
+                      </td>
+                      <td>
+                        <Link href={`/admin/courses/${c._id}`} className="block font-medium text-ink hover:text-navy-700 hover:underline">
+                          {c.title}
+                        </Link>
+                        <span className="mt-0.5 block text-[11.5px] text-muted">
+                          {t(`format.${c.format}`)}
+                          {c.schedule ? ` · ${c.schedule}` : ""}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap text-muted tabular">
+                        {formatDate(c.startDate, locale)} – {formatDate(c.endDate, locale)}
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <span className="w-12 shrink-0 tabular">
+                            {s.active}/{c.capacity}
                           </span>
+                          <span className="h-1 w-14 shrink-0 bg-canvas">
+                            <span className="block h-full bg-navy-700" style={{ width: `${full}%` }} />
+                          </span>
+                          {s.pending > 0 && (
+                            <span className="badge border border-amber-700/25 bg-amber-50 text-amber-900">+{s.pending}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap tabular">{formatMoney(c.price, c.currency, locale)}</td>
+                      <td>
+                        <StatusBadge status={c.status} label={t(`status.${c.status}`)} />
+                      </td>
+                      <td className="text-end">
+                        <Link href={`/admin/courses/${c._id}`} className="btn btn-outline btn-sm">
+                          {t("admin.courses.manage")} <ArrowRight className="size-3 rtl:rotate-180" />
                         </Link>
                       </td>
-                      <td className="whitespace-nowrap text-muted"><CalendarDays className="me-1.5 inline size-3.5" />{formatDate(c.startDate, locale)} – {formatDate(c.endDate, locale)}</td>
-                      <td className="whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5"><Users className="size-3.5 text-muted" /> {s.active}/{c.capacity}</span>
-                        {s.pending > 0 && <span className="badge ms-2 bg-amber-50 text-amber-800">+{s.pending} {t("status.pending")}</span>}
-                      </td>
-                      <td className="whitespace-nowrap">{formatMoney(c.price, c.currency, locale)}</td>
-                      <td><StatusBadge status={c.status} label={t(`status.${c.status}`)} /></td>
-                      <td className="text-end"><Link href={`/admin/courses/${c._id}`} className="btn btn-outline btn-sm">{t("admin.courses.manage")} <ArrowRight className="size-3.5 rtl:rotate-180" /></Link></td>
                     </tr>
                   );
                 })}
@@ -115,7 +160,7 @@ export default async function AdminCoursesPage({ searchParams }) {
             </table>
           </div>
         ) : (
-          <EmptyState icon={<BookOpen className="size-5" />} title={t("admin.courses.empty")} text={t("admin.courses.emptyText")} />
+          <EmptyState icon={<BookOpen className="size-4" />} title={t("admin.courses.empty")} text={t("admin.courses.emptyText")} />
         )}
       </div>
     </>

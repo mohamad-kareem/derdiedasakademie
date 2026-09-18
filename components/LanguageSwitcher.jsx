@@ -48,7 +48,7 @@ export default function LanguageSwitcher({ variant = "light", className }) {
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition",
+          "inline-flex h-8 items-center gap-1.5 rounded-[2px] px-2 text-[12px] font-semibold transition-colors",
           variant === "dark" ? "text-white/80 hover:bg-white/10 hover:text-white" : "text-ink/80 hover:bg-navy-50",
         )}
       >
@@ -57,16 +57,16 @@ export default function LanguageSwitcher({ variant = "light", className }) {
         <ChevronDown className="size-3 opacity-60" />
       </button>
       {open && (
-        <ul role="listbox" className="absolute end-0 z-50 mt-1 w-40 overflow-hidden rounded-lg border border-line bg-white py-1 shadow-lg">
+        <ul role="listbox" className="absolute end-0 z-50 mt-1 w-40 overflow-hidden rounded-[3px] border border-line-strong bg-white py-1 shadow-sm">
           {OPTIONS.map((o) => (
             <li key={o.code}>
               <button
                 type="button"
                 onClick={() => choose(o.code)}
-                className="flex w-full items-center justify-between px-3 py-2 text-sm text-ink hover:bg-canvas"
+                className="flex w-full items-center justify-between px-3 py-1.5 text-[13px] text-ink hover:bg-cream"
               >
                 <span>{o.label}</span>
-                {o.code === locale && <Check className="size-4 text-gold-500" />}
+                {o.code === locale && <Check className="size-3.5 text-gold-600" />}
               </button>
             </li>
           ))}

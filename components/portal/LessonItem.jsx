@@ -15,21 +15,21 @@ export default function LessonItem({ lesson, t, locale, showCourse = false, canJ
   const openSoon = state === "live" || isTeacher;
 
   return (
-    <div className={cn("flex gap-4 px-4 py-3.5", state === "live" && "bg-red-50/50")}>
-      <div className={cn("flex w-14 shrink-0 flex-col items-center justify-center rounded-lg border py-1.5 text-center", state === "past" ? "border-line bg-canvas text-muted" : "border-navy-100 bg-navy-50 text-navy-900")}>
+    <div className={cn("flex gap-3.5 px-3.5 py-3", state === "live" && "border-s-[3px] border-red-700 bg-red-50/40 ps-3")}>
+      <div className={cn("flex w-12 shrink-0 flex-col items-center justify-center rounded-[2px] border py-1.5 text-center", state === "past" ? "border-line bg-canvas text-muted" : "border-navy-100 bg-navy-50 text-navy-900")}>
         <span className="text-[10px] font-semibold uppercase">{formatDate(d, locale, { month: "short", day: undefined, year: undefined })}</span>
-        <span className="text-lg font-semibold leading-tight">{formatDate(d, locale, { day: "numeric", month: undefined, year: undefined })}</span>
+        <span className="text-[17px] font-semibold leading-tight tabular">{formatDate(d, locale, { day: "numeric", month: undefined, year: undefined })}</span>
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           {showCourse && lesson.course && <LevelBadge level={lesson.course.level} />}
           <p className="truncate text-sm font-semibold text-ink">{lesson.title}</p>
-          {state === "live" && <span className="badge bg-red-600 text-white">{t("lessons.liveNow")}</span>}
+          {state === "live" && <span className="badge border border-red-700 bg-red-700 text-white">{t("lessons.liveNow")}</span>}
           {state === "past" && attendance !== undefined && (
             attendance ? (
-              <span className="badge bg-emerald-50 text-emerald-700"><CheckCircle2 className="size-3" /> {t("classroom.attendedMin", { n: Math.max(1, Math.round(attendance.seconds / 60)) })}</span>
+              <span className="badge border border-emerald-700/25 bg-emerald-50 text-emerald-800"><CheckCircle2 className="size-3" /> {t("classroom.attendedMin", { n: Math.max(1, Math.round(attendance.seconds / 60)) })}</span>
             ) : (
-              <span className="badge bg-canvas text-muted"><XCircle className="size-3" /> {t("classroom.missed")}</span>
+              <span className="badge border border-line-strong bg-cream text-muted"><XCircle className="size-3" /> {t("classroom.missed")}</span>
             )
           )}
         </div>
@@ -41,12 +41,12 @@ export default function LessonItem({ lesson, t, locale, showCourse = false, canJ
         {(lesson.materials?.length > 0 || lesson.attachments?.length > 0) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {lesson.attachments?.map((f) => (
-              <a key={f.key} href={fileUrl(f, { inline: true })} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-56 items-center gap-1.5 rounded-full border border-line bg-white py-0.5 pe-2.5 ps-0.5 text-[11px] font-medium text-ink hover:border-navy-600/40">
-                <FileIcon file={f} className="size-5 rounded-full" /> <span className="truncate" dir="ltr">{f.name}</span>
+              <a key={f.key} href={fileUrl(f, { inline: true })} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-56 items-center gap-1.5 rounded-[2px] border border-line bg-white py-0.5 pe-2 ps-0.5 text-[11px] font-medium text-ink hover:border-navy-600">
+                <FileIcon file={f} className="size-5 rounded-[2px]" /> <span className="truncate" dir="ltr">{f.name}</span>
               </a>
             ))}
             {lesson.materials?.map((m, i) => (
-              <a key={i} href={m.url} target="_blank" rel="noopener noreferrer" className="badge bg-gold-50 text-gold-600 hover:bg-gold-100">
+              <a key={i} href={m.url} target="_blank" rel="noopener noreferrer" className="badge border border-gold-600/25 bg-gold-50 text-gold-600 hover:bg-gold-100">
                 <Link2 className="size-3" /> {m.title}
               </a>
             ))}

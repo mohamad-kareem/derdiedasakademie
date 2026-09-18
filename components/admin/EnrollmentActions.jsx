@@ -5,7 +5,7 @@ import { setEnrollmentStatus, setPaymentStatus } from "@/app/actions/admin";
 export default function EnrollmentActions({ e, t, compact = false }) {
   const id = e._id;
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1.5">
+    <div className="flex flex-wrap items-center justify-end gap-1.5 sm:flex-nowrap">
       {e.status === "pending" && (
         <>
           <ActionButton action={setEnrollmentStatus.bind(null, id, "active")} className="btn-primary" title={t("admin.enroll.approve")}>

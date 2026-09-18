@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export default function Logo({ href = "/", dark = false, compact = false, className }) {
   return (
     <Link href={href} className={cn("flex items-center gap-3", className)} dir="ltr" aria-label="Die DerDieDas Akademie">
-      <span className={cn("flex items-center", dark && "rounded-md bg-white px-1.5 py-1")}>
+      <span className={cn("flex items-center", dark && "rounded-[2px] bg-white px-1.5 py-1")}>
         <Image src="/logo/mark.png" alt="" width={480} height={200} priority className={cn("w-auto", dark ? "h-6" : "h-7")} />
       </span>
       {!compact && (
