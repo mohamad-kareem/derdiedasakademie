@@ -1,7 +1,8 @@
-import { Video, Database, HardDrive, Clock3, CalendarCheck2, Users, Gauge, TriangleAlert, Terminal } from "lucide-react";
+import { Video, Database, HardDrive, Clock3, CalendarCheck2, Radio, Gauge, TriangleAlert, Terminal } from "lucide-react";
 import { PageHeader, StatCard, Panel, EmptyState } from "@/components/ui/Blocks";
 import { LevelBadge } from "@/components/ui/Badges";
 import { Meter, DayBars, Num, usageState } from "@/components/admin/UsageBlocks";
+import LiveRefresh from "@/components/admin/LiveRefresh";
 import { requireAdmin } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { getUsageReport } from "@/lib/usage";
@@ -10,7 +11,7 @@ import { formatBytes, formatDateTime, formatMinutes, formatNumber } from "@/lib/
 export default async function AdminUsagePage() {
   await requireAdmin();
   const { t, locale } = await getI18n();
-  const { storage, traffic, teaching, bytesPerPersonMinute } = await getUsageReport();
+  const { storage, traffic, teaching, live, bytesPerPersonMinute } = await getUsageReport();
 
   const stateLabel = (percent) => t(`admin.usage.state.${usageState(percent)}`);
 
@@ -24,6 +25,7 @@ export default async function AdminUsagePage() {
 
   return (
     <>
+      <LiveRefresh seconds={20} />
       <PageHeader title={t("admin.usage.title")} description={t("admin.usage.subtitle")} />
 
       {/* ---------------------------------------------------------- allowances */}
@@ -113,14 +115,20 @@ export default async function AdminUsagePage() {
             label={t("admin.usage.stats.classes")}
             value={formatNumber(teaching.lessonsHeld, locale)}
             icon={<CalendarCheck2 className="size-5" />}
-            hint={t("admin.usage.stats.classesHint", { n: formatNumber(teaching.lessonsAttended, locale) })}
+            hint={t("admin.usage.stats.classesHint", { n: formatNumber(teaching.averageClassSize, locale) })}
           />
           <StatCard
-            label={t("admin.usage.stats.learners")}
-            value={formatNumber(teaching.learners, locale)}
-            icon={<Users className="size-5" />}
-            tone="green"
-            hint={t("admin.usage.stats.classSizeHint", { n: formatNumber(teaching.averageClassSize, locale) })}
+            label={t("admin.usage.stats.live")}
+            value={live.ok ? formatNumber(live.people, locale) : "—"}
+            icon={<Radio className="size-5" />}
+            tone={live.ok && live.people > 0 ? "green" : "navy"}
+            hint={
+              live.ok
+                ? live.rooms.length
+                  ? t(live.rooms.length === 1 ? "admin.usage.stats.liveRoom" : "admin.usage.stats.liveRooms", { n: formatNumber(live.rooms.length, locale) })
+                  : t("admin.usage.stats.liveNone")
+                : t("admin.usage.stats.liveOff")
+            }
           />
         </div>
       )}
@@ -203,6 +211,38 @@ export default async function AdminUsagePage() {
         </div>
 
         <div className="space-y-6">
+          {/* ----------------------------------------------- who is in class now */}
+          {live.ok && live.rooms.length > 0 && (
+            <Panel
+              title={
+                <span className="flex items-center gap-2">
+                  <span className="relative flex size-2">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                    <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
+                  </span>
+                  {t("admin.usage.live.title")}
+                </span>
+              }
+              bodyClassName="divide-y divide-line"
+            >
+              {live.rooms.map((r) => (
+                <div key={r.id} className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    {r.level && <LevelBadge level={r.level} />}
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{r.title || t("admin.usage.live.unknown")}</p>
+                    <span className="shrink-0 text-sm font-semibold text-navy-900">{formatNumber(r.people, locale)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    {t("admin.usage.live.line", {
+                      people: formatNumber(r.people, locale),
+                      minutes: formatMinutes(r.minutes ?? 0, locale),
+                    })}
+                  </p>
+                </div>
+              ))}
+            </Panel>
+          )}
+
           {/* -------------------------------------------------- where files sit */}
           {storage.ok && (
             <Panel title={t("admin.usage.areas.title")} bodyClassName="divide-y divide-line">

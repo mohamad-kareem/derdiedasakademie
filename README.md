@@ -85,10 +85,15 @@ Nothing in the app changes; only `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_A
 | Video traffic this month | the video server counts every byte it sends (vnstat) | 10 TB Oracle free allowance |
 | Database storage | MongoDB's own statistics | 512 MB Atlas free tier |
 | Server disk | the video server | its own size |
-| Time in class, sessions, students | attendance records | — |
+| Time in class, sessions | attendance records | — |
+| In class right now | the video server, asked live | — |
 
 It also projects the month end from the days so far, and shows what one person-minute of class
 actually costs in traffic — so a busier term can be forecast by multiplying, not guessing.
+
+The "in class right now" tile is live: it asks the video server who is connected at this moment and
+lists the open classrooms with how long each has been running. The page refreshes itself every 20
+seconds while it is open (and pauses when the tab is in the background).
 
 Traffic measuring is off until you run **`sudo bash ~/video-server/usage-setup.sh`** on the video
 server once and add the two values it prints (`SERVER_USAGE_URL`, `SERVER_USAGE_TOKEN`) in Vercel.
