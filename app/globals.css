@@ -21,14 +21,46 @@
   --color-gold-100: #e8dcc0;
   --color-gold-50: #f7f2e4;
 
-  /* Paper neutrals. */
+  /* Paper neutrals — one family, one temperature, so nothing reads as a second
+     colour. Paper is what carries content; canvas is the ground behind it.
+     Two tunings are kept here: WARM, the printed-prospectus grey-beige, and
+     COOL, the administrative grey-blue. Comment one block out, use the other —
+     nothing else in the system needs changing. */
+
+  /* --- WARM ------------------------------------------------------------- */
   --color-cream: #f8f7f4;
   --color-paper: #ffffff;
   --color-canvas: #f2f2ef;
-  --color-ink: #1a1f26;
-  --color-muted: #5b6470;
   --color-line: #dcdcd6;
   --color-line-strong: #c3c4bc;
+
+  /* --- COOL -------------------------------------------------------------
+  --color-cream: #f6f8fa;
+  --color-paper: #ffffff;
+  --color-canvas: #f1f3f6;
+  --color-line: #dde2e9;
+  --color-line-strong: #c7ced8;
+  ----------------------------------------------------------------------- */
+
+  --color-ink: #1a1f26;
+  --color-muted: #5b6470;
+
+  /* The portal chrome. Masthead and navigation column share one surface, so the
+     frame reads as a single L rather than as two bands of different colour.
+     These follow whichever tuning is active above. */
+
+  /* --- WARM --- */
+  --color-shell: #ffffff;
+  --color-shell-hover: #f4f3ef;
+  --color-shell-active: #eae9e2;
+  --color-shell-line: #dcdcd6;
+
+  /* --- COOL ---
+  --color-shell: #ffffff;
+  --color-shell-hover: #f1f3f6;
+  --color-shell-active: #e7ecf2;
+  --color-shell-line: #dde2e9;
+  ------------- */
 
   --color-flag-red: #c81a1a;
   --color-flag-gold: #d8a220;

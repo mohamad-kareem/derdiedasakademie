@@ -4,6 +4,7 @@ import { useParticipants, useParticipantAttributes } from "@livekit/components-r
 import { Track } from "livekit-client";
 import { Mic, MicOff, Video, VideoOff, Hand, Crown, MonitorUp, UserX, HandMetal } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { avatarSrc } from "@/components/ui/Avatar";
 import { cn, initials } from "@/lib/utils";
 
 const SIGNAL_ICON = { understood: "✅", repeat: "🔁", slower: "🐢", question: "❓" };
@@ -21,7 +22,12 @@ function Row({ p, me, isTeacher, signal, screenAllowed, onMute, onRemove, onTogg
 
   return (
     <li className={cn("group flex items-center gap-2.5 rounded-lg px-2 py-2", hand && "bg-gold-500/15")}>
-      <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold", teacher ? "bg-gold-500 text-white" : "bg-navy-600 text-white")}>{initials(p.name || p.identity)}</span>
+      {avatarSrc(attributes?.avatar) ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={avatarSrc(attributes.avatar)} alt="" className="size-8 shrink-0 rounded-full object-cover" />
+      ) : (
+        <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold", teacher ? "bg-gold-500 text-white" : "bg-navy-600 text-white")}>{initials(p.name || p.identity)}</span>
+      )}
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1 truncate text-sm text-white">
           {teacher && <Crown className="size-3.5 shrink-0 text-gold-400" />}

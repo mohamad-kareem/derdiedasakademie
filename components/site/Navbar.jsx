@@ -23,6 +23,7 @@ export default function Navbar({ user }) {
 
   const links = [
     { href: "/courses", label: t("nav.courses") },
+    { href: "/level-test", label: t("nav.levelTest") },
     { href: "/#levels", label: t("nav.levels") },
     { href: "/#method", label: t("nav.method") },
     { href: "/#about", label: t("nav.about") },

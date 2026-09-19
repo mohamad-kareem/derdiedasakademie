@@ -1,6 +1,7 @@
 "use client";
 
 import ActionForm, { SubmitButton } from "@/components/ui/ActionForm";
+import AvatarField from "@/components/portal/AvatarField";
 import PasswordInput from "@/components/auth/PasswordInput";
 import { useI18n } from "@/components/I18nProvider";
 import { updateProfile, changePassword } from "@/app/actions/student";
@@ -12,7 +13,10 @@ export default function ProfileForms({ user, showLevel }) {
     <div className="grid gap-6 lg:grid-cols-2">
       <section className="card p-5">
         <h2 className="text-sm font-semibold text-navy-900">{t("profile.details")}</h2>
-        <ActionForm action={updateProfile} className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4">
+          <AvatarField user={user} />
+        </div>
+        <ActionForm action={updateProfile} className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="block sm:col-span-2">
             <span className="label">{t("form.fullName")}</span>
             <input name="name" defaultValue={user.name} required className="input" />

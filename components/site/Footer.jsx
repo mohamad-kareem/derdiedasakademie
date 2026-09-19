@@ -31,6 +31,7 @@ export default async function Footer() {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-white">{t("footer.academy")}</h3>
           <ul className="mt-4 space-y-2.5 text-sm">
             <li><Link className="hover:text-white" href="/courses">{t("nav.courses")}</Link></li>
+            <li><Link className="hover:text-white" href="/level-test">{t("nav.levelTest")}</Link></li>
             <li><Link className="hover:text-white" href="/#method">{t("nav.method")}</Link></li>
             <li><Link className="hover:text-white" href="/#about">{t("nav.about")}</Link></li>
             <li><Link className="hover:text-white" href="/#faq">{t("nav.faq")}</Link></li>

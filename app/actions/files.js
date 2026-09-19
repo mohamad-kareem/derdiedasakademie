@@ -9,6 +9,9 @@ import PendingUpload from "@/models/PendingUpload";
 
 const ADMIN_SCOPES = ["materials", "assignments", "resources", "announcements", "chat", "feedback"];
 
+const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"];
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
 /**
  * Checks permission and reserves a storage key. The browser then sends the file
  * to /api/files/upload in chunks, using the returned uploadId.
@@ -18,13 +21,24 @@ export async function createUpload({ scope, courseId, studentId, name, size }) {
   const user = await actionUser();
   if (!user) return { ok: false, error: "errors.loginRequired" };
   if (!isStorageConfigured()) return { ok: false, error: "files.notConfigured" };
-  if (!isId(courseId)) return { ok: false, error: "errors.forbidden" };
 
   const type = allowedType(name);
   if (!type) return { ok: false, error: "files.typeNotAllowed" };
   if (!Number.isFinite(size) || size <= 0 || size > MAX_UPLOAD_MB * 1024 * 1024) return { ok: false, error: "files.tooLarge" };
 
   await connectDB();
+
+  // A portrait belongs to the person, not to a course, so it is settled first
+  // and on its own terms: pictures only, and a small allowance.
+  if (scope === "avatar") {
+    if (!AVATAR_TYPES.includes(type)) return { ok: false, error: "profile.photoType" };
+    if (size > AVATAR_MAX_BYTES) return { ok: false, error: "profile.photoTooLarge" };
+    const key = buildKey(`avatars/${user.id}`, name);
+    const pending = await PendingUpload.create({ key, user: user.id, name, type, size });
+    return { ok: true, key, type, uploadId: String(pending._id), chunkSize: UPLOAD_CHUNK_BYTES };
+  }
+
+  if (!isId(courseId)) return { ok: false, error: "errors.forbidden" };
   let prefix;
   if (user.role === "admin") {
     if (scope === "feedback" && isId(studentId)) prefix = `submissions/${courseId}/${studentId}/feedback`;

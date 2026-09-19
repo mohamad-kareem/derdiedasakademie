@@ -3,6 +3,7 @@
 import { VideoTrack, useIsSpeaking, useIsMuted, useParticipantAttributes, isTrackReference } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { MicOff, Hand, Crown, MonitorUp } from "lucide-react";
+import { avatarSrc } from "@/components/ui/Avatar";
 import { cn, initials } from "@/lib/utils";
 
 const SIGNAL_ICON = { understood: "✅", repeat: "🔁", slower: "🐢", question: "❓" };
@@ -30,7 +31,12 @@ export default function VideoTile({ trackRef, signal, className, compact = false
         <VideoTrack trackRef={trackRef} className={cn("size-full", isScreen ? "object-contain bg-black" : "object-cover")} />
       ) : (
         <div className="flex flex-col items-center gap-2">
-          <span className={cn("flex items-center justify-center rounded-full bg-navy-600 font-semibold text-white", compact ? "size-10 text-sm" : "size-20 text-2xl")}>{initials(name)}</span>
+          {avatarSrc(attributes?.avatar) ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={avatarSrc(attributes.avatar)} alt="" className={cn("rounded-full object-cover", compact ? "size-10" : "size-20")} />
+          ) : (
+            <span className={cn("flex items-center justify-center rounded-full bg-navy-600 font-semibold text-white", compact ? "size-10 text-sm" : "size-20 text-2xl")}>{initials(name)}</span>
+          )}
         </div>
       )}
       {attributes?.hand === "1" && !isScreen && (

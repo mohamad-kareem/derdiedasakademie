@@ -123,6 +123,18 @@ export default async function HomePage() {
               </Link>
             ))}
           </div>
+
+          <div className="mt-6 flex flex-col items-start justify-between gap-3 border border-line bg-cream px-4 py-3.5 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-[14px] font-semibold text-navy-900">{t("test.title")}</p>
+              <p className="mt-0.5 text-[12.5px] text-muted">
+                {t("test.facts.questions", { n: 30 })} · {t("test.facts.minutes")} · {t("test.facts.noSignup")}
+              </p>
+            </div>
+            <Link href="/level-test" className="btn btn-primary shrink-0">
+              {t("test.intro.start")} <ArrowRight className="size-4 rtl:rotate-180" />
+            </Link>
+          </div>
         </div>
       </section>
 

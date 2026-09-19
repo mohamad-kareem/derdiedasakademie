@@ -42,6 +42,8 @@ export default function Whiteboard({ me, ops, drafts, background, canDraw, isTea
   const current = useRef(null);
   const lastDraftSent = useRef(0);
   const myIds = useRef([]);
+  const textRef = useRef(null);
+  const textOpened = useRef(0);
 
   // Fit the board into the available space while keeping its aspect ratio.
   useEffect(() => {
@@ -157,6 +159,13 @@ export default function Whiteboard({ me, ops, drafts, background, canDraw, isTea
     if (!canDraw || e.button > 0) return;
     const p = pos(e);
     if (tool === "text") {
+      // Cancel the compatibility mouse events this pointer would otherwise
+      // raise: their default action moves focus to the document, which blurred
+      // the box the instant it opened and closed it again before anything
+      // could be typed.
+      e.preventDefault();
+      if (textBox) commitText();
+      textOpened.current = performance.now();
       setTextBox({ x: p[0], y: p[1], v: "" });
       return;
     }
@@ -287,10 +296,19 @@ export default function Whiteboard({ me, ops, drafts, background, canDraw, isTea
           />
           {textBox && (
             <textarea
+              ref={textRef}
               autoFocus
               value={textBox.v}
               onChange={(e) => setTextBox({ ...textBox, v: e.target.value })}
-              onBlur={commitText}
+              onBlur={() => {
+                // A blur in the first moments after opening is the browser
+                // settling focus, not the teacher leaving the box.
+                if (performance.now() - textOpened.current < 400) {
+                  textRef.current?.focus();
+                  return;
+                }
+                commitText();
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();

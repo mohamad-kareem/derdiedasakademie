@@ -130,3 +130,41 @@ export async function changePassword(formData) {
   await doc.save();
   return done("profile.passwordChanged");
 }
+
+/**
+ * Sets the signed-in person's portrait to a file they have just uploaded under
+ * their own avatars/ prefix, and removes whatever portrait it replaces so the
+ * database does not accumulate discarded pictures.
+ */
+export async function setAvatar(key) {
+  const user = await actionUser();
+  if (!user) return fail("errors.loginRequired");
+  if (typeof key !== "string" || !key.startsWith(`avatars/${user.id}/`) || key.includes("..")) {
+    return fail("errors.forbidden");
+  }
+
+  await connectDB();
+  const doc = await User.findById(user.id).select("avatarKey");
+  if (!doc) return fail("errors.forbidden");
+  const previous = doc.avatarKey;
+  doc.avatarKey = key;
+  await doc.save();
+  if (previous && previous !== key) await deleteKeys([previous]);
+  refresh();
+  return done("profile.photoSaved");
+}
+
+export async function clearAvatar() {
+  const user = await actionUser();
+  if (!user) return fail("errors.loginRequired");
+
+  await connectDB();
+  const doc = await User.findById(user.id).select("avatarKey");
+  if (!doc) return fail("errors.forbidden");
+  const previous = doc.avatarKey;
+  doc.avatarKey = "";
+  await doc.save();
+  if (previous) await deleteKeys([previous]);
+  refresh();
+  return done("profile.photoRemoved");
+}
