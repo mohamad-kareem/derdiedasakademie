@@ -64,6 +64,32 @@ export function StatCard({ label, value, hint, icon, tone = "navy" }) {
   );
 }
 
+/**
+ * A row of key figures as one ruled strip rather than four separate cards.
+ *
+ * Each cell states its label, its figure and the one line of context that
+ * belongs to it, which is all a heading row of statistics needs; giving them a
+ * card apiece cost twice the height and made a plain count look like an alert.
+ * Colour is reserved for a figure that genuinely wants attention.
+ */
+export function StatRow({ items = [] }) {
+  return (
+    <dl className="grid grid-cols-2 gap-px overflow-hidden border border-line bg-line lg:grid-cols-4">
+      {items.map(({ label, value, hint, alert }) => (
+        <div key={label} className="min-w-0 bg-paper px-3.5 py-2.5">
+          <dt className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">{label}</dt>
+          <dd className="mt-1.5 flex items-baseline gap-2">
+            <span className={cn("text-[19px] font-semibold leading-none tracking-tight tabular", alert ? "text-red-700" : "text-navy-900")}>
+              {value}
+            </span>
+            {hint && <span className="min-w-0 truncate text-[11.5px] text-muted">{hint}</span>}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function Panel({ title, action, children, className, bodyClassName }) {
   return (
     <section className={cn("card overflow-hidden", className)}>

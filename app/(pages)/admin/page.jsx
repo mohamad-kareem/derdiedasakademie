@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Users, Layers, Wallet, FileCheck2, CalendarDays, Inbox, Plus } from "lucide-react";
-import { PageHeader, StatCard, Panel, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
+import { PageHeader, StatRow, Panel, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge } from "@/components/ui/Badges";
 import LessonItem from "@/components/portal/LessonItem";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
@@ -53,24 +53,23 @@ export default async function AdminOverview() {
       </PageHeader>
 
       {/* ------------------------------------------------------- key figures */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label={t("admin.stats.students")} value={students} icon={<Users />} hint={t("admin.stats.activeEnrollments", { n: activeCount })} />
-        <StatCard label={t("admin.stats.pending")} value={pendingCount} icon={<Layers />} tone="gold" hint={t("admin.stats.pendingHint")} />
-        <StatCard
-          label={t("admin.stats.revenue")}
-          value={formatMoney(revenueAgg[0]?.total || 0, currency, locale)}
-          icon={<Wallet />}
-          tone="green"
-          hint={t("admin.stats.outstanding", { amount: formatMoney(outstandingAgg[0]?.total || 0, currency, locale) })}
-        />
-        <StatCard
-          label={t("admin.stats.toGrade")}
-          value={toGrade}
-          icon={<FileCheck2 />}
-          tone={toGrade ? "red" : "green"}
-          hint={t("admin.stats.newInquiries", { n: newInquiries })}
-        />
-      </div>
+      <StatRow
+        items={[
+          { label: t("admin.stats.students"), value: students, hint: t("admin.stats.activeEnrollments", { n: activeCount }) },
+          { label: t("admin.stats.pending"), value: pendingCount, hint: t("admin.stats.pendingHint") },
+          {
+            label: t("admin.stats.revenue"),
+            value: formatMoney(revenueAgg[0]?.total || 0, currency, locale),
+            hint: t("admin.stats.outstanding", { amount: formatMoney(outstandingAgg[0]?.total || 0, currency, locale) }),
+          },
+          {
+            label: t("admin.stats.toGrade"),
+            value: toGrade,
+            alert: toGrade > 0,
+            hint: t("admin.stats.newInquiries", { n: newInquiries }),
+          },
+        ]}
+      />
 
       <div className="mt-5 grid gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">

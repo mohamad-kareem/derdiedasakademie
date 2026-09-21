@@ -5,6 +5,8 @@ import {
   CalendarDays, ChevronDown, Mail, Phone, Compass, ClipboardCheck, GraduationCap,
 } from "lucide-react";
 import SiteShell from "@/components/site/SiteShell";
+import HeroSlideshow from "@/components/site/HeroSlideshow";
+import Marquee from "@/components/site/Marquee";
 import CourseCard from "@/components/site/CourseCard";
 import ContactForm from "@/components/site/ContactForm";
 import IntroVideo from "@/components/site/IntroVideo";
@@ -79,15 +81,7 @@ export default async function HomePage() {
 
           <div className="lg:col-span-5">
             <figure className="card overflow-hidden">
-              <Image
-                src="/back.png"
-                alt={t("home.hero.imageAlt")}
-                width={1536}
-                height={1024}
-                priority
-                className="aspect-[4/3] w-full object-cover"
-                sizes="(min-width: 1024px) 460px, 100vw"
-              />
+              <HeroSlideshow alt={t("home.hero.imageAlt")} />
               <figcaption className="flex items-center justify-between gap-3 border-t border-line bg-cream px-3.5 py-2.5">
                 <span className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-muted">{t("home.hero.nextIntake")}</span>
                 {next ? (
@@ -103,6 +97,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <Marquee />
 
       {/* ---------------------------------------------------------------- levels */}
       <section id="levels" className="scroll-mt-20 bg-white py-14">

@@ -206,6 +206,29 @@
   .prose-text {
     @apply whitespace-pre-line text-[13.5px] leading-relaxed text-ink/85;
   }
+  /* A band whose contents travel from end to end without a seam: the track
+     holds two identical runs and moves exactly one of them. */
+  .marquee {
+    @apply relative flex overflow-hidden;
+  }
+  .marquee-track {
+    animation: ddd-marquee 48s linear infinite;
+  }
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes ddd-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
 }
 
 @page {

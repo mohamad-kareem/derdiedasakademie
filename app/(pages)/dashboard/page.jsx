@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BookOpen, CalendarDays, ClipboardList, Megaphone, ArrowRight, Hourglass, Star, Pin } from "lucide-react";
-import { PageHeader, StatCard, Panel, EmptyState } from "@/components/ui/Blocks";
+import { PageHeader, StatRow, Panel, EmptyState } from "@/components/ui/Blocks";
 import LessonItem from "@/components/portal/LessonItem";
 import AssignmentRow from "@/components/portal/AssignmentRow";
 import AttachmentList from "@/components/files/AttachmentList";
@@ -45,12 +45,14 @@ export default async function StudentOverview() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label={t("student.stats.activeCourses")} value={activeIds.length} icon={<BookOpen className="size-5" />} />
-        <StatCard label={t("student.stats.upcoming")} value={lessons.length} icon={<CalendarDays className="size-5" />} tone="gold" />
-        <StatCard label={t("student.stats.todo")} value={todo.length} icon={<ClipboardList className="size-5" />} tone={todo.length ? "red" : "green"} />
-        <StatCard label={t("student.stats.average")} value={avg === null ? "—" : `${avg}%`} icon={<Star className="size-5" />} tone="green" />
-      </div>
+      <StatRow
+        items={[
+          { label: t("student.stats.activeCourses"), value: activeIds.length },
+          { label: t("student.stats.upcoming"), value: lessons.length },
+          { label: t("student.stats.todo"), value: todo.length, alert: todo.length > 0 },
+          { label: t("student.stats.average"), value: avg === null ? "—" : `${avg}%` },
+        ]}
+      />
 
       {enrollments.length === 0 ? (
         <div className="card mt-6">
