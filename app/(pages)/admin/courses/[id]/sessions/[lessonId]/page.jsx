@@ -4,7 +4,7 @@ import { ArrowLeft, Video, Users, ListChecks, MessageSquare, BookA, CheckCircle2
 import { Panel, EmptyState, StatCard } from "@/components/ui/Blocks";
 import { StatusBadge } from "@/components/ui/Badges";
 import { ARTICLE_COLORS } from "@/components/classroom/boardDraw";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { isId } from "@/lib/validate";
 import connectDB from "@/lib/mongodb";
@@ -22,7 +22,7 @@ import { formatDateTime, formatTime, nowMs, plain } from "@/lib/utils";
 export default async function SessionReportPage({ params }) {
   const { id, lessonId } = await params;
   if (!isId(id) || !isId(lessonId)) notFound();
-  await requireAdmin();
+  await requireStaff();
   const { t, locale } = await getI18n();
   await connectDB();
   const [lesson, course] = await Promise.all([Lesson.findOne({ _id: lessonId, course: id }).lean(), Course.findById(id).lean()]);
