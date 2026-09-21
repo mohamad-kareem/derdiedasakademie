@@ -3,13 +3,13 @@ import { PageHeader, StatCard, Panel, EmptyState, Breadcrumb } from "@/component
 import { LevelBadge } from "@/components/ui/Badges";
 import { Meter, DayBars, Num, usageState } from "@/components/admin/UsageBlocks";
 import LiveRefresh from "@/components/admin/LiveRefresh";
-import { requireAdmin } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { getUsageReport } from "@/lib/usage";
 import { formatBytes, formatDateTime, formatMinutes, formatNumber } from "@/lib/utils";
 
 export default async function AdminUsagePage() {
-  await requireAdmin();
+  await requireOwner();
   const { t, locale } = await getI18n();
   const { storage, traffic, teaching, live, bytesPerPersonMinute } = await getUsageReport();
 

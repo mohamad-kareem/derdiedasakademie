@@ -4,31 +4,39 @@ import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import FormModal from "@/components/admin/FormModal";
 import { CourseFields } from "@/components/admin/Fields";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
+import { can, isOwner, teaches, portalKey } from "@/lib/roles";
 import { getI18n } from "@/lib/i18n/server";
 import connectDB from "@/lib/mongodb";
 import Course from "@/models/Course";
 import Enrollment from "@/models/Enrollment";
+import User from "@/models/User";
 import { saveCourse } from "@/app/actions/admin";
 import { LEVELS } from "@/lib/constants";
 import { cn, formatDate, formatMoney, plain } from "@/lib/utils";
 
 export default async function AdminCoursesPage({ searchParams }) {
   const sp = await searchParams;
-  await requireAdmin();
+  const user = await requireStaff();
   const { t, locale } = await getI18n();
   await connectDB();
+  const owner = isOwner(user);
+  const money = can(user, "finance.view");
+  const onlyMine = sp.mine === "1";
 
   const status = ["draft", "published", "archived"].includes(sp.status) ? sp.status : null;
   const level = LEVELS.includes(sp.level) ? sp.level : null;
   const query = {};
   if (status) query.status = status;
   if (level) query.level = level;
+  if (onlyMine) query.teacher = user.id;
 
-  const [courses, counts] = await Promise.all([
+  const [courses, counts, staff] = await Promise.all([
     Course.find(query).sort({ startDate: -1 }).lean(),
     Enrollment.aggregate([{ $match: { status: { $in: ["active", "pending", "completed"] } } }, { $group: { _id: { course: "$course", status: "$status" }, n: { $sum: 1 } } }]),
+    User.find({ role: { $in: ["owner", "teacher", "admin"] } }).select("name").sort({ name: 1 }).lean(),
   ]);
+  const teacherNames = Object.fromEntries(plain(staff).map((p) => [p._id, p.name]));
   const stat = {};
   counts.forEach(({ _id, n }) => {
     const k = String(_id.course);
@@ -38,7 +46,7 @@ export default async function AdminCoursesPage({ searchParams }) {
 
   const qs = (patch) => {
     const p = new URLSearchParams();
-    const next = { status, level, ...patch };
+    const next = { status, level, mine: onlyMine ? "1" : null, ...patch };
     Object.entries(next).forEach(([k, v]) => v && p.set(k, v));
     const s = p.toString();
     return s ? `/admin/courses?${s}` : "/admin/courses";
@@ -48,9 +56,9 @@ export default async function AdminCoursesPage({ searchParams }) {
     <>
       <PageHeader
         title={t("admin.nav.courses")}
-        description={t("admin.courses.subtitle")}
+        description={t(owner ? "admin.courses.subtitle" : "admin.courses.teacherSubtitle")}
         actions={
-          <FormModal
+          can(user, "courses.create") && <FormModal
             defaultOpen={sp.new === "1"}
             trigger={<><Plus className="size-3.5" /> {t("admin.courses.new")}</>}
             title={t("admin.courses.new")}
@@ -58,11 +66,11 @@ export default async function AdminCoursesPage({ searchParams }) {
             submitLabel={t("admin.courses.create")}
             size="lg"
           >
-            <CourseFields t={t} />
+            <CourseFields t={t} staff={plain(staff)} />
           </FormModal>
         }
       >
-        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.courses")]} />
+        <Breadcrumb trail={[t(portalKey(user)), t("admin.nav.courses")]} />
       </PageHeader>
 
       {/* ------------------------------------------------------------ filters */}
@@ -89,6 +97,11 @@ export default async function AdminCoursesPage({ searchParams }) {
           </div>
         </div>
 
+        <div className="toolbar">
+          <Link href={qs({ mine: null })} className={cn("toolbar-item", !onlyMine && "toolbar-item-active")}>{t("common.all")}</Link>
+          <Link href={qs({ mine: "1" })} className={cn("toolbar-item", onlyMine && "toolbar-item-active")}>{t("admin.courses.mine")}</Link>
+        </div>
+
         <p className="ms-auto text-[11.5px] text-muted tabular">
           {t(courses.length === 1 ? "common.result" : "common.results", { n: courses.length })}
         </p>
@@ -105,7 +118,8 @@ export default async function AdminCoursesPage({ searchParams }) {
                   <th>{t("admin.fields.title")}</th>
                   <th className="w-56">{t("courses.dates")}</th>
                   <th className="w-40">{t("admin.courses.students")}</th>
-                  <th className="w-24">{t("courses.price")}</th>
+                  <th className="w-36">{t("admin.fields.teacher")}</th>
+                  {money && <th className="w-24">{t("courses.price")}</th>}
                   <th className="w-28">{t("admin.fields.status")}</th>
                   <th className="w-24" />
                 </tr>
@@ -144,13 +158,16 @@ export default async function AdminCoursesPage({ searchParams }) {
                           )}
                         </div>
                       </td>
-                      <td className="whitespace-nowrap tabular">{formatMoney(c.price, c.currency, locale)}</td>
+                      <td className="truncate text-[12.5px] text-muted">
+                        {c.teacher ? teacherNames[String(c.teacher)] || t("admin.fields.teacherNone") : t("admin.fields.teacherNone")}
+                      </td>
+                      {money && <td className="whitespace-nowrap tabular">{formatMoney(c.price, c.currency, locale)}</td>}
                       <td>
                         <StatusBadge status={c.status} label={t(`status.${c.status}`)} />
                       </td>
                       <td className="text-end">
                         <Link href={`/admin/courses/${c._id}`} className="btn btn-outline btn-sm">
-                          {t("admin.courses.manage")} <ArrowRight className="size-3 rtl:rotate-180" />
+                          {teaches(user, c) ? t("admin.courses.manage") : t("admin.courses.open")} <ArrowRight className="size-3 rtl:rotate-180" />
                         </Link>
                       </td>
                     </tr>

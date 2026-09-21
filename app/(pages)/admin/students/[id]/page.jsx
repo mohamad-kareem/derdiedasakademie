@@ -5,7 +5,8 @@ import { Panel, EmptyState } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
 import StudentEditForm from "@/components/admin/StudentEditForm";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
+import { can } from "@/lib/roles";
 import { getI18n } from "@/lib/i18n/server";
 import { isId } from "@/lib/validate";
 import connectDB from "@/lib/mongodb";
@@ -19,7 +20,10 @@ import { formatDate, formatMoney, initials, plain } from "@/lib/utils";
 export default async function StudentDetailPage({ params }) {
   const { id } = await params;
   if (!isId(id)) notFound();
-  await requireAdmin();
+  const viewer = await requireStaff();
+  const money = can(viewer, "finance.view");
+  const decide = can(viewer, "enrollments.decide");
+  const manage = can(viewer, "students.manage");
   const { t, locale } = await getI18n();
   await connectDB();
 
@@ -68,11 +72,11 @@ export default async function StudentDetailPage({ params }) {
                   <Link href={`/admin/courses/${e.course._id}?tab=students`} className="flex items-center gap-2 text-sm font-medium text-ink hover:underline"><LevelBadge level={e.course.level} /> {e.course.title}</Link>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted">
                     <StatusBadge status={e.status} label={t(`status.${e.status}`)} />
-                    <StatusBadge status={e.paymentStatus} label={t(`payment.${e.paymentStatus}`)} />
-                    <span>{formatMoney(e.amount, e.course.currency, locale)} · {formatDate(e.createdAt, locale)}</span>
+                    {money && <StatusBadge status={e.paymentStatus} label={t(`payment.${e.paymentStatus}`)} />}
+                    <span>{money ? `${formatMoney(e.amount, e.course.currency, locale)} · ` : ""}{formatDate(e.createdAt, locale)}</span>
                   </div>
                 </div>
-                <EnrollmentActions e={e} t={t} compact />
+                {decide && <EnrollmentActions e={e} t={t} compact />}
               </div>
             )) : <EmptyState icon={<Layers className="size-5" />} title={t("admin.students.noEnrollments")} />}
           </Panel>
@@ -90,7 +94,7 @@ export default async function StudentDetailPage({ params }) {
           </Panel>
         </div>
         <Panel title={t("admin.students.edit")} bodyClassName="p-4">
-          <StudentEditForm student={student} />
+          {manage && <StudentEditForm student={student} />}
         </Panel>
       </div>
     </>

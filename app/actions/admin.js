@@ -23,12 +23,62 @@ import { deleteKeys } from "@/lib/storage";
 import { LEVELS, RESOURCE_CATEGORIES } from "@/lib/constants";
 import { str, num, isId, isEmail, fail, done } from "@/lib/validate";
 import { parseLocalDateTime, safeUrl } from "@/lib/utils";
+import { can, teaches, isOwner, ROLES } from "@/lib/roles";
 
-async function guard() {
-  const admin = await actionUser("admin");
-  if (!admin) return null;
+/**
+ * Every action starts here. `capability` says what kind of thing is being
+ * attempted; the caller then checks, where it matters, that the person is
+ * responsible for the particular course involved.
+ */
+async function guard(capability) {
+  const user = await actionUser("staff");
+  if (!user || !can(user, capability)) return null;
   await connectDB();
-  return admin;
+  return user;
+}
+
+/** The staff member, but only if the course this record belongs to is theirs. */
+async function guardOwned(capability, Model, id) {
+  const user = await guard(capability);
+  if (!user || !isId(String(id))) return null;
+  const doc = await Model.findById(id).select("course").lean();
+  if (!doc) return null;
+  const course = await Course.findById(doc.course).select("teacher").lean();
+  if (!course || !teaches(user, course)) return null;
+  return user;
+}
+
+/**
+ * An announcement without a course goes to the whole academy, which only the
+ * owner may do; one attached to a course belongs to whoever runs it.
+ */
+async function guardAnnouncement(id, courseId) {
+  const user = await guard("announcements.manage");
+  if (!user) return null;
+
+  const allowed = async (course) => {
+    if (!course) return isOwner(user);
+    const doc = await Course.findById(course).select("teacher").lean();
+    return Boolean(doc) && teaches(user, doc);
+  };
+
+  // Editing: the notice must be theirs both where it is and where it is going,
+  // so it cannot be moved into a colleague's course.
+  if (id) {
+    if (!isId(String(id))) return null;
+    const ann = await Announcement.findById(id).select("course").lean();
+    if (!ann || !(await allowed(ann.course))) return null;
+  }
+  return (await allowed(courseId)) ? user : null;
+}
+
+/** The staff member, but only if this course is theirs to work on. */
+async function guardCourse(capability, courseId) {
+  const user = await guard(capability);
+  if (!user || !isId(String(courseId))) return null;
+  const course = await Course.findById(courseId).select("teacher").lean();
+  if (!course || !teaches(user, course)) return null;
+  return user;
 }
 
 function refresh() {
@@ -38,35 +88,69 @@ function refresh() {
 /* ---------------- Courses ---------------- */
 
 export async function saveCourse(courseId, formData) {
-  if (!(await guard())) return fail("errors.forbidden");
+  const user = await actionUser("staff");
+  if (!user) return fail("errors.forbidden");
+  await connectDB();
+
+  // Who may touch this at all: the owner may create and edit anything, a
+  // teacher may edit a course that has been assigned to them, and nobody else.
+  const owner = isOwner(user);
+  if (!courseId && !can(user, "courses.create")) return fail("errors.forbidden");
+  let existing = null;
+  if (courseId) {
+    if (!isId(courseId)) return fail("errors.notFound");
+    existing = await Course.findById(courseId).select("teacher").lean();
+    if (!existing || !teaches(user, existing)) return fail("errors.forbidden");
+  }
 
   const title = str(formData, "title", 120);
   const level = str(formData, "level", 4);
   const startDate = parseLocalDateTime(str(formData, "startDate"));
   const endDate = parseLocalDateTime(str(formData, "endDate"));
+
+  // What may be changed: a teacher edits how the course runs, never what it
+  // costs, how many seats it has, whether it is published, or who teaches it.
+  const teaching = {
+    description: str(formData, "description", 5000),
+    schedule: str(formData, "schedule", 200),
+    meetingUrl: safeUrl(str(formData, "meetingUrl", 500)),
+    classroom: str(formData, "classroom") === "external" ? "external" : "builtin",
+    studentCameras: str(formData, "studentCameras") === "on" ? "on" : "off",
+  };
+
+  if (!owner) {
+    await Course.updateOne({ _id: courseId }, teaching);
+    refresh();
+    return done("admin.saved");
+  }
+
   if (!title) return fail("errors.titleRequired");
   if (!LEVELS.includes(level)) return fail("errors.levelRequired");
   if (!startDate || !endDate) return fail("errors.datesRequired");
   if (endDate < startDate) return fail("errors.datesOrder");
 
+  const assigned = str(formData, "teacher");
   const data = {
+    ...teaching,
     title,
     level,
     format: ["group", "private", "intensive"].includes(str(formData, "format")) ? str(formData, "format") : "group",
-    description: str(formData, "description", 5000),
-    schedule: str(formData, "schedule", 200),
     startDate,
     endDate,
     price: Math.max(0, num(formData, "price")),
     currency: (str(formData, "currency", 3) || "EUR").toUpperCase(),
     capacity: Math.max(1, Math.round(num(formData, "capacity", 12))),
-    meetingUrl: safeUrl(str(formData, "meetingUrl", 500)),
-    classroom: str(formData, "classroom") === "external" ? "external" : "builtin",
     status: ["draft", "published", "archived"].includes(str(formData, "status")) ? str(formData, "status") : "draft",
+    teacher: isId(assigned) ? assigned : null,
   };
 
+  // Only a member of staff can be put in charge of a course.
+  if (data.teacher) {
+    const staff = await User.exists({ _id: data.teacher, role: { $in: ["owner", "teacher", "admin"] } });
+    if (!staff) data.teacher = null;
+  }
+
   if (courseId) {
-    if (!isId(courseId)) return fail("errors.notFound");
     await Course.updateOne({ _id: courseId }, data);
     refresh();
     return done("admin.saved");
@@ -77,7 +161,7 @@ export async function saveCourse(courseId, formData) {
 }
 
 export async function deleteCourse(courseId) {
-  if (!(await guard()) || !isId(courseId)) return fail("errors.forbidden");
+  if (!(await guard("courses.delete")) || !isId(courseId)) return fail("errors.forbidden");
   if (await Enrollment.exists({ course: courseId, status: { $in: ["active", "completed", "pending"] } })) {
     return fail("errors.courseHasStudents");
   }
@@ -127,7 +211,7 @@ function parseMaterials(raw) {
 }
 
 export async function saveLesson(courseId, lessonId, formData) {
-  if (!(await guard()) || !isId(courseId)) return fail("errors.forbidden");
+  if (!(await guardCourse("teaching.manage", courseId))) return fail("errors.forbidden");
   const title = str(formData, "title", 160);
   const startsAt = parseLocalDateTime(str(formData, "startsAt"));
   if (!title) return fail("errors.titleRequired");
@@ -157,7 +241,7 @@ export async function saveLesson(courseId, lessonId, formData) {
 }
 
 export async function deleteLesson(lessonId) {
-  if (!(await guard()) || !isId(lessonId)) return fail("errors.forbidden");
+  if (!(await guardOwned("teaching.manage", Lesson, lessonId))) return fail("errors.forbidden");
   const lesson = await Lesson.findById(lessonId).select("attachments").lean();
   if (!lesson) return fail("errors.notFound");
   const chats = await ChatMessage.find({ lesson: lessonId, attachment: { $ne: null } }).select("attachment").lean();
@@ -178,7 +262,7 @@ export async function deleteLesson(lessonId) {
 /* ---------------- Assignments ---------------- */
 
 export async function saveAssignment(courseId, assignmentId, formData) {
-  if (!(await guard()) || !isId(courseId)) return fail("errors.forbidden");
+  if (!(await guardCourse("teaching.manage", courseId))) return fail("errors.forbidden");
   const title = str(formData, "title", 160);
   if (!title) return fail("errors.titleRequired");
   const data = {
@@ -205,7 +289,7 @@ export async function saveAssignment(courseId, assignmentId, formData) {
 }
 
 export async function deleteAssignment(assignmentId) {
-  if (!(await guard()) || !isId(assignmentId)) return fail("errors.forbidden");
+  if (!(await guardOwned("teaching.manage", Assignment, assignmentId))) return fail("errors.forbidden");
   const [assignment, subs] = await Promise.all([
     Assignment.findById(assignmentId).select("attachments").lean(),
     Submission.find({ assignment: assignmentId }).select("attachments feedbackAttachments").lean(),
@@ -221,7 +305,7 @@ export async function deleteAssignment(assignmentId) {
 }
 
 export async function gradeSubmission(submissionId, formData) {
-  if (!(await guard()) || !isId(submissionId)) return fail("errors.forbidden");
+  if (!(await guardOwned("grading.manage", Submission, submissionId))) return fail("errors.forbidden");
   const sub = await Submission.findById(submissionId).populate("assignment", "maxPoints");
   if (!sub) return fail("errors.notFound");
   const grade = num(formData, "grade", NaN);
@@ -240,7 +324,7 @@ export async function gradeSubmission(submissionId, formData) {
 }
 
 export async function reopenSubmission(submissionId) {
-  if (!(await guard()) || !isId(submissionId)) return fail("errors.forbidden");
+  if (!(await guardOwned("grading.manage", Submission, submissionId))) return fail("errors.forbidden");
   await Submission.updateOne({ _id: submissionId }, { status: "submitted" });
   refresh();
   return done();
@@ -249,15 +333,16 @@ export async function reopenSubmission(submissionId) {
 /* ---------------- Announcements ---------------- */
 
 export async function saveAnnouncement(announcementId, formData) {
-  if (!(await guard())) return fail("errors.forbidden");
+  const course = str(formData, "course");
+  const target = isId(course) ? course : null;
+  if (!(await guardAnnouncement(announcementId || null, target))) return fail("errors.forbidden");
   const title = str(formData, "title", 160);
   if (!title) return fail("errors.titleRequired");
-  const course = str(formData, "course");
   const data = {
     title,
     body: str(formData, "body", 5000),
     pinned: formData.get("pinned") === "on",
-    course: isId(course) ? course : null,
+    course: target,
   };
   data.attachments = data.course ? parseAttachments(formData, "attachments", `courses/${data.course}/`) : [];
   if (announcementId) {
@@ -273,7 +358,7 @@ export async function saveAnnouncement(announcementId, formData) {
 }
 
 export async function deleteAnnouncement(id) {
-  if (!(await guard()) || !isId(id)) return fail("errors.forbidden");
+  if (!(await guardAnnouncement(id))) return fail("errors.forbidden");
   const ann = await Announcement.findById(id).select("attachments").lean();
   await deleteKeys((ann?.attachments || []).map((a) => a.key));
   await Announcement.deleteOne({ _id: id });
@@ -284,7 +369,7 @@ export async function deleteAnnouncement(id) {
 /* ---------------- Enrollments ---------------- */
 
 export async function setEnrollmentStatus(enrollmentId, status) {
-  if (!(await guard()) || !isId(enrollmentId)) return fail("errors.forbidden");
+  if (!(await guard("enrollments.decide")) || !isId(enrollmentId)) return fail("errors.forbidden");
   if (!["pending", "active", "completed", "rejected", "cancelled"].includes(status)) return fail("errors.generic");
   const enrollment = await Enrollment.findById(enrollmentId).populate("course", "capacity");
   if (!enrollment) return fail("errors.notFound");
@@ -303,7 +388,7 @@ export async function setEnrollmentStatus(enrollmentId, status) {
 }
 
 export async function setPaymentStatus(enrollmentId, paymentStatus) {
-  if (!(await guard()) || !isId(enrollmentId)) return fail("errors.forbidden");
+  if (!(await guard("finance.manage")) || !isId(enrollmentId)) return fail("errors.forbidden");
   if (!["paid", "unpaid"].includes(paymentStatus)) return fail("errors.generic");
   await Enrollment.updateOne({ _id: enrollmentId }, { paymentStatus });
   refresh();
@@ -311,7 +396,7 @@ export async function setPaymentStatus(enrollmentId, paymentStatus) {
 }
 
 export async function addStudentToCourse(courseId, formData) {
-  if (!(await guard()) || !isId(courseId)) return fail("errors.forbidden");
+  if (!(await guard("enrollments.decide")) || !isId(courseId)) return fail("errors.forbidden");
   const email = str(formData, "email", 200).toLowerCase();
   if (!isEmail(email)) return fail("errors.invalidEmail");
   const [student, course] = await Promise.all([
@@ -340,7 +425,7 @@ export async function addStudentToCourse(courseId, formData) {
 /* ---------------- Students ---------------- */
 
 export async function updateStudent(studentId, formData) {
-  if (!(await guard()) || !isId(studentId)) return fail("errors.forbidden");
+  if (!(await guard("students.manage")) || !isId(studentId)) return fail("errors.forbidden");
   const level = str(formData, "level", 10);
   const update = {
     name: str(formData, "name", 80),
@@ -363,7 +448,7 @@ export async function updateStudent(studentId, formData) {
 /* ---------------- Course library ---------------- */
 
 export async function saveResource(courseId, resourceId, formData) {
-  if (!(await guard()) || !isId(courseId)) return fail("errors.forbidden");
+  if (!(await guardCourse("resources.manage", courseId))) return fail("errors.forbidden");
   const title = str(formData, "title", 160);
   if (!title) return fail("errors.titleRequired");
   const category = str(formData, "category");
@@ -392,7 +477,7 @@ export async function saveResource(courseId, resourceId, formData) {
 }
 
 export async function deleteResource(resourceId) {
-  if (!(await guard()) || !isId(resourceId)) return fail("errors.forbidden");
+  if (!(await guardOwned("resources.manage", Resource, resourceId))) return fail("errors.forbidden");
   const r = await Resource.findById(resourceId).select("attachments").lean();
   await deleteKeys((r?.attachments || []).map((a) => a.key));
   await Resource.deleteOne({ _id: resourceId });
@@ -403,7 +488,7 @@ export async function deleteResource(resourceId) {
 /* ---------------- Inquiries ---------------- */
 
 export async function setInquiryStatus(id, status) {
-  if (!(await guard()) || !isId(id)) return fail("errors.forbidden");
+  if (!(await guard("inquiries.manage")) || !isId(id)) return fail("errors.forbidden");
   if (!["new", "contacted", "closed"].includes(status)) return fail("errors.generic");
   await Inquiry.updateOne({ _id: id }, { status });
   refresh();
@@ -411,8 +496,79 @@ export async function setInquiryStatus(id, status) {
 }
 
 export async function deleteInquiry(id) {
-  if (!(await guard()) || !isId(id)) return fail("errors.forbidden");
+  if (!(await guard("inquiries.manage")) || !isId(id)) return fail("errors.forbidden");
   await Inquiry.deleteOne({ _id: id });
+  refresh();
+  return done();
+}
+
+/* ---------------- Staff ---------------- */
+
+/**
+ * Creates a colleague's account or edits one. Only the owner may do this, and
+ * the owner's own account is not editable from here — that is what their own
+ * profile page is for, and it keeps the last owner from locking themselves out.
+ */
+export async function saveStaff(staffId, formData) {
+  const actor = await guard("staff.manage");
+  if (!actor) return fail("errors.forbidden");
+
+  const name = str(formData, "name", 80);
+  const email = str(formData, "email", 200).toLowerCase();
+  const role = str(formData, "role", 10) === "owner" ? "owner" : "teacher";
+  if (name.length < 2) return fail("errors.nameRequired");
+  if (!isEmail(email)) return fail("errors.invalidEmail");
+
+  const data = { name, email, role, title: str(formData, "title", 80), phone: str(formData, "phone", 40) };
+
+  if (staffId) {
+    if (!isId(staffId)) return fail("errors.notFound");
+    if (String(staffId) === actor.id) return fail("errors.forbidden");
+    const clash = await User.exists({ email, _id: { $ne: staffId } });
+    if (clash) return fail("errors.emailTaken");
+    const doc = await User.findById(staffId).select("role").lean();
+    if (!doc || doc.role === "student") return fail("errors.notFound");
+    await User.updateOne({ _id: staffId }, data);
+    refresh();
+    return done("admin.saved");
+  }
+
+  if (await User.exists({ email })) return fail("errors.emailTaken");
+  const password = String(formData.get("password") || "");
+  if (password.length < 8) return fail("errors.passwordShort");
+  await User.create({ ...data, password: await bcrypt.hash(password, 12), level: "unknown" });
+  refresh();
+  return done("admin.staff.created");
+}
+
+/** Suspends or restores a colleague. A suspended account cannot sign in. */
+export async function setStaffActive(staffId, active) {
+  const actor = await guard("staff.manage");
+  if (!actor || !isId(staffId)) return fail("errors.forbidden");
+  if (String(staffId) === actor.id) return fail("errors.forbidden");
+  const doc = await User.findById(staffId).select("role").lean();
+  if (!doc || doc.role === "student") return fail("errors.notFound");
+  await User.updateOne({ _id: staffId }, { isActive: Boolean(active) });
+  refresh();
+  return done("admin.saved");
+}
+
+/**
+ * Removes a colleague's account. Their courses are not deleted — they are left
+ * unassigned, so the owner can hand them to someone else.
+ */
+export async function deleteStaff(staffId) {
+  const actor = await guard("staff.manage");
+  if (!actor || !isId(staffId)) return fail("errors.forbidden");
+  if (String(staffId) === actor.id) return fail("errors.forbidden");
+  const doc = await User.findById(staffId).select("role avatarKey").lean();
+  if (!doc || doc.role === "student") return fail("errors.notFound");
+  if (doc.role === "owner" && (await User.countDocuments({ role: { $in: ["owner", "admin"] } })) <= 1) {
+    return fail("errors.forbidden");
+  }
+  await Course.updateMany({ teacher: staffId }, { teacher: null });
+  if (doc.avatarKey) await deleteKeys([doc.avatarKey]);
+  await User.deleteOne({ _id: staffId });
   refresh();
   return done();
 }

@@ -7,6 +7,7 @@ import User from "@/models/User";
 import { createSession, destroySession, isAdminEmail } from "@/lib/auth";
 import { LEVELS } from "@/lib/constants";
 import { str, isEmail, safeNext, fail } from "@/lib/validate";
+import { isStaff, homeFor } from "@/lib/roles";
 
 export async function loginAction(formData) {
   const email = str(formData, "email", 200).toLowerCase();
@@ -18,14 +19,15 @@ export async function loginAction(formData) {
   if (!user || !(await bcrypt.compare(password, user.password))) return fail("errors.invalidCredentials");
   if (!user.isActive) return fail("errors.accountDisabled");
 
-  if (user.role !== "admin" && isAdminEmail(email)) user.role = "admin";
+  // An address listed in ADMIN_EMAILS is the owner, whatever the record says.
+  if (user.role !== "owner" && isAdminEmail(email)) user.role = "owner";
   user.lastLoginAt = new Date();
   await user.save();
   await createSession(user);
 
-  const fallback = user.role === "admin" ? "/admin" : "/dashboard";
+  const fallback = homeFor(user);
   const next = safeNext(str(formData, "next"), fallback);
-  redirect(user.role === "admin" && next.startsWith("/dashboard") ? "/admin" : next);
+  redirect(isStaff(user) && next.startsWith("/dashboard") ? "/admin" : next);
 }
 
 export async function registerAction(formData) {
@@ -50,12 +52,12 @@ export async function registerAction(formData) {
     phone,
     level: LEVELS.includes(level) ? level : "unknown",
     password: await bcrypt.hash(password, 12),
-    role: isAdminEmail(email) ? "admin" : "student",
+    role: isAdminEmail(email) ? "owner" : "student",
     lastLoginAt: new Date(),
   });
   await createSession(user);
 
-  redirect(user.role === "admin" ? "/admin" : safeNext(str(formData, "next"), "/dashboard"));
+  redirect(isStaff(user) ? "/admin" : safeNext(str(formData, "next"), "/dashboard"));
 }
 
 export async function logoutAction() {

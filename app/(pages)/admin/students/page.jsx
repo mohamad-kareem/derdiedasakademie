@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Search, Users } from "lucide-react";
 import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
+import { can, portalKey } from "@/lib/roles";
 import { getI18n } from "@/lib/i18n/server";
 import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
@@ -19,7 +20,7 @@ export default async function StudentsPage({ searchParams }) {
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 80) : "";
   const level = [...LEVELS, "unknown"].includes(sp.level) ? sp.level : "";
-  await requireAdmin();
+  const user = await requireStaff();
   const { t, locale } = await getI18n();
   await connectDB();
 
@@ -36,7 +37,7 @@ export default async function StudentsPage({ searchParams }) {
   return (
     <>
       <PageHeader title={t("admin.nav.students")} description={t("admin.students.subtitle", { n: students.length })} >
-        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.students")]} />
+        <Breadcrumb trail={[t(portalKey(user)), t("admin.nav.students")]} />
       </PageHeader>
       <form className="mb-4 flex flex-col gap-2 sm:flex-row" action="/admin/students">
         <div className="relative flex-1">

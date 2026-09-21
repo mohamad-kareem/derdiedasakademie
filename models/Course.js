@@ -15,11 +15,15 @@ const CourseSchema = new mongoose.Schema(
     capacity: { type: Number, default: 12, min: 1 },
     meetingUrl: { type: String, default: "" },
     classroom: { type: String, enum: ["builtin", "external"], default: "builtin" },
+    studentCameras: { type: String, enum: ["on", "off"], default: "off" },
     status: { type: String, enum: ["draft", "published", "archived"], default: "draft" },
+    // The member of staff who runs this course. Null means the owner does.
+    teacher: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true },
 );
 
 CourseSchema.index({ status: 1, startDate: 1 });
+CourseSchema.index({ teacher: 1, startDate: -1 });
 
 export default mongoose.models.Course || mongoose.model("Course", CourseSchema);

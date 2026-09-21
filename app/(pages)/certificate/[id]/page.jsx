@@ -6,6 +6,7 @@ import PrintButton from "@/components/portal/PrintButton";
 import { requireUser } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { isId } from "@/lib/validate";
+import { isStaff } from "@/lib/roles";
 import connectDB from "@/lib/mongodb";
 import Enrollment from "@/models/Enrollment";
 import "@/models/Course";
@@ -23,7 +24,7 @@ export default async function CertificatePage({ params }) {
   if (!e?.course || !e.student) notFound();
   if (user.role !== "admin" && String(e.student._id) !== user.id) notFound();
 
-  const back = user.role === "admin" ? `/admin/courses/${e.course._id}?tab=students` : "/dashboard/courses";
+  const back = isStaff(user) ? `/admin/courses/${e.course._id}?tab=students` : "/dashboard/courses";
   const certNo = `DDD-${e.course.level}-${String(e._id).slice(-8).toUpperCase()}`;
 
   return (

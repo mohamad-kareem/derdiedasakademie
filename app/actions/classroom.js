@@ -55,7 +55,7 @@ export async function sendChatMessage(lessonId, { text = "", attachment = null }
       : null;
   const clean = String(text).trim().slice(0, 2000);
   if (!clean && !file) return fail("errors.generic");
-  const msg = await ChatMessage.create({ lesson: lessonId, user: user.id, name: user.name, role: user.role === "admin" ? "teacher" : "student", text: clean, attachment: file });
+  const msg = await ChatMessage.create({ lesson: lessonId, user: user.id, name: user.name, role: access.isTeacher ? "teacher" : "student", text: clean, attachment: file });
   return { ok: true, data: serializeMessage(msg) };
 }
 
@@ -132,6 +132,18 @@ export async function muteParticipant(lessonId, identity, trackSid) {
     return done();
   } catch (err) {
     console.error("[classroom] mute", err?.message);
+    return fail("errors.generic");
+  }
+}
+
+export async function setParticipantCamera(lessonId, identity, trackSid, muted) {
+  const { user } = await inRoom(lessonId, { teacherOnly: true });
+  if (!user || !isLiveKitConfigured()) return fail("errors.forbidden");
+  try {
+    await roomService().mutePublishedTrack(roomNameFor(lessonId), String(identity), String(trackSid), Boolean(muted));
+    return done();
+  } catch (err) {
+    console.error("[classroom] camera", err?.message);
     return fail("errors.generic");
   }
 }

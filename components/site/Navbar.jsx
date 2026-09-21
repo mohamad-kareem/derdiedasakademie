@@ -8,6 +8,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useI18n } from "@/components/I18nProvider";
 import { site } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { homeFor } from "@/lib/roles";
 
 export default function Navbar({ user }) {
   const { t } = useI18n();
@@ -30,7 +31,7 @@ export default function Navbar({ user }) {
     { href: "/#faq", label: t("nav.faq") },
     { href: "/#contact", label: t("nav.contact") },
   ];
-  const portal = user ? (user.role === "admin" ? "/admin" : "/dashboard") : null;
+  const portal = user ? homeFor(user) : null;
 
   return (
     <header className={cn("sticky top-0 z-50 bg-paper", scrolled && "shadow-[0_1px_0_rgba(0,0,0,0.04)]")}>

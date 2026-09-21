@@ -3,7 +3,7 @@ import { Layers } from "lucide-react";
 import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
-import { requireAdmin } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import connectDB from "@/lib/mongodb";
 import Enrollment from "@/models/Enrollment";
@@ -16,7 +16,7 @@ const STATUSES = ["pending", "active", "completed", "rejected", "cancelled", "un
 export default async function EnrollmentsPage({ searchParams }) {
   const { status: raw } = await searchParams;
   const status = STATUSES.includes(raw) ? raw : "pending";
-  await requireAdmin();
+  await requireOwner();
   const { t, locale } = await getI18n();
   await connectDB();
 

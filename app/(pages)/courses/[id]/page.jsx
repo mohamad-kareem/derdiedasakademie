@@ -8,6 +8,7 @@ import { getI18n } from "@/lib/i18n/server";
 import { getPublishedCourse, safe } from "@/lib/data";
 import { getCurrentUser } from "@/lib/auth";
 import { isId } from "@/lib/validate";
+import { isStaff } from "@/lib/roles";
 import Enrollment from "@/models/Enrollment";
 import { formatDate, formatMoney } from "@/lib/utils";
 
@@ -89,7 +90,7 @@ export default async function CourseDetailPage({ params }) {
                 ))}
               </ul>
               <div className="border-t border-line p-5">
-                {user?.role === "admin" ? (
+                {isStaff(user) ? (
                   <Link href={`/admin/courses/${course._id}`} className="btn btn-primary w-full">{t("courses.manage")}</Link>
                 ) : enrollment && ["pending", "active", "completed"].includes(enrollment.status) ? (
                   <div className="space-y-3 text-center">

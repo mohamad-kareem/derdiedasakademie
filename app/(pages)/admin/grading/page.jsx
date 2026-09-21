@@ -4,7 +4,8 @@ import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import FormModal from "@/components/admin/FormModal";
 import ActionButton from "@/components/ui/ActionButton";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
+import { isOwner, ownCoursesFilter, portalKey } from "@/lib/roles";
 import { getI18n } from "@/lib/i18n/server";
 import { isId } from "@/lib/validate";
 import connectDB from "@/lib/mongodb";
@@ -22,16 +23,21 @@ export default async function GradingPage({ searchParams }) {
   const sp = await searchParams;
   const status = sp.status === "graded" ? "graded" : "submitted";
   const course = isId(sp.course) ? sp.course : "";
-  await requireAdmin();
+  const user = await requireStaff();
   const { t, locale } = await getI18n();
   await connectDB();
 
+  // A teacher grades the work handed in for their own courses; the owner sees all.
+  const scope = await Course.find({ status: { $ne: "archived" }, ...ownCoursesFilter(user) }).select("title level").sort({ startDate: -1 }).lean();
+  const allowed = scope.map((c) => String(c._id));
+
   const query = { status };
-  if (course) query.course = course;
+  if (course && allowed.includes(course)) query.course = course;
+  else if (!isOwner(user)) query.course = { $in: scope.map((c) => c._id) };
   const [subs, courses] = plain(
     await Promise.all([
       Submission.find(query).populate("student", "name email").populate("assignment", "title maxPoints dueDate instructions").populate("course", "title level").sort({ updatedAt: status === "submitted" ? 1 : -1 }).limit(200).lean(),
-      Course.find({ status: { $ne: "archived" } }).select("title level").sort({ startDate: -1 }).lean(),
+      scope,
     ]),
   );
   const list = subs.filter((s) => s.student && s.assignment);
@@ -44,7 +50,7 @@ export default async function GradingPage({ searchParams }) {
   return (
     <>
       <PageHeader title={t("admin.nav.grading")} description={t("admin.grading.subtitle")} >
-        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.grading")]} />
+        <Breadcrumb trail={[t(portalKey(user)), t("admin.nav.grading")]} />
       </PageHeader>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="flex rounded-[3px] border border-line bg-white p-1">

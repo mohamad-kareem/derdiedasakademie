@@ -4,7 +4,8 @@ import { PageHeader, StatRow, Panel, EmptyState, Breadcrumb } from "@/components
 import { LevelBadge } from "@/components/ui/Badges";
 import LessonItem from "@/components/portal/LessonItem";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
+import { can, isOwner, ownCoursesFilter } from "@/lib/roles";
 import { getI18n } from "@/lib/i18n/server";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
@@ -17,23 +18,39 @@ import "@/models/Assignment";
 import { formatDate, formatMoney, hoursAgo, plain } from "@/lib/utils";
 
 export default async function AdminOverview() {
-  const user = await requireAdmin();
+  const user = await requireStaff();
   const { t, locale } = await getI18n();
   await connectDB();
 
+  // Everything below is scoped to what this person is responsible for: the
+  // owner sees the academy, a teacher sees their own courses and nothing else.
+  const owner = isOwner(user);
+  const money = can(user, "finance.view");
+  const decide = can(user, "enrollments.decide");
+
+  const mineDocs = await Course.find(ownCoursesFilter(user)).select("_id").lean();
+  const mineIds = mineDocs.map((c) => c._id);
+  const courseScope = owner ? {} : { course: { $in: mineIds } };
+
   const [pendingCount, students, activeCount, revenueAgg, outstandingAgg, toGrade, newInquiries, pending, lessons, courses, enrollCounts, recentSubs] = await Promise.all([
-    Enrollment.countDocuments({ status: "pending" }),
-    User.countDocuments({ role: "student" }),
-    Enrollment.countDocuments({ status: "active" }),
-    Enrollment.aggregate([{ $match: { paymentStatus: "paid" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
-    Enrollment.aggregate([{ $match: { paymentStatus: "unpaid", status: { $in: ["active", "completed"] } } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
-    Submission.countDocuments({ status: "submitted" }),
-    Inquiry.countDocuments({ status: "new" }),
-    Enrollment.find({ status: "pending" }).populate("student", "name email level").populate("course", "title level").sort({ createdAt: -1 }).limit(6).lean(),
-    Lesson.find({ startsAt: { $gte: hoursAgo(2) } }).populate("course", "title level meetingUrl classroom").sort({ startsAt: 1 }).limit(6).lean(),
-    Course.find({ status: "published", endDate: { $gte: new Date() } }).sort({ startDate: 1 }).limit(6).lean(),
+    Enrollment.countDocuments({ ...courseScope, status: "pending" }),
+    owner ? User.countDocuments({ role: "student" }) : Enrollment.distinct("student", { ...courseScope, status: "active" }).then((l) => l.length),
+    Enrollment.countDocuments({ ...courseScope, status: "active" }),
+    money ? Enrollment.aggregate([{ $match: { paymentStatus: "paid" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]) : [],
+    money ? Enrollment.aggregate([{ $match: { paymentStatus: "unpaid", status: { $in: ["active", "completed"] } } }, { $group: { _id: null, total: { $sum: "$amount" } } }]) : [],
+    Submission.countDocuments({ ...courseScope, status: "submitted" }),
+    can(user, "inquiries.manage") ? Inquiry.countDocuments({ status: "new" }) : 0,
+    decide
+      ? Enrollment.find({ status: "pending" }).populate("student", "name email level").populate("course", "title level").sort({ createdAt: -1 }).limit(6).lean()
+      : [],
+    Lesson.find({ ...(owner ? {} : { course: { $in: mineIds } }), startsAt: { $gte: hoursAgo(2) } })
+      .populate("course", "title level meetingUrl classroom")
+      .sort({ startsAt: 1 })
+      .limit(6)
+      .lean(),
+    Course.find({ status: "published", endDate: { $gte: new Date() }, ...ownCoursesFilter(user) }).sort({ startDate: 1 }).limit(6).lean(),
     Enrollment.aggregate([{ $match: { status: "active" } }, { $group: { _id: "$course", n: { $sum: 1 } } }]),
-    Submission.find({ status: "submitted" }).populate("student", "name").populate("assignment", "title").sort({ createdAt: -1 }).limit(5).lean(),
+    Submission.find({ ...courseScope, status: "submitted" }).populate("student", "name").populate("assignment", "title").sort({ createdAt: -1 }).limit(5).lean(),
   ]);
   const counts = Object.fromEntries(enrollCounts.map((c) => [String(c._id), c.n]));
   const currency = courses[0]?.currency || "EUR";
@@ -42,31 +59,37 @@ export default async function AdminOverview() {
     <>
       <PageHeader
         title={t("admin.overview.title", { name: user.name.split(" ")[0] })}
-        description={t("admin.overview.subtitle")}
+        description={t(owner ? "admin.overview.subtitle" : "admin.overview.teacherSubtitle")}
         actions={
-          <Link href="/admin/courses?new=1" className="btn btn-primary">
-            <Plus className="size-3.5" /> {t("admin.courses.new")}
-          </Link>
+          can(user, "courses.create") && (
+            <Link href="/admin/courses?new=1" className="btn btn-primary">
+              <Plus className="size-3.5" /> {t("admin.courses.new")}
+            </Link>
+          )
         }
       >
-        <Breadcrumb trail={[t("admin.portal"), t("admin.nav.overview")]} />
+        <Breadcrumb trail={[t(owner ? "admin.portal" : "admin.teacherPortal"), t("admin.nav.overview")]} />
       </PageHeader>
 
       {/* ------------------------------------------------------- key figures */}
       <StatRow
         items={[
           { label: t("admin.stats.students"), value: students, hint: t("admin.stats.activeEnrollments", { n: activeCount }) },
-          { label: t("admin.stats.pending"), value: pendingCount, hint: t("admin.stats.pendingHint") },
-          {
-            label: t("admin.stats.revenue"),
-            value: formatMoney(revenueAgg[0]?.total || 0, currency, locale),
-            hint: t("admin.stats.outstanding", { amount: formatMoney(outstandingAgg[0]?.total || 0, currency, locale) }),
-          },
+          money
+            ? { label: t("admin.stats.pending"), value: pendingCount, hint: t("admin.stats.pendingHint") }
+            : { label: t("admin.stats.myCourses"), value: courses.length, hint: t("admin.stats.myCoursesHint") },
+          money
+            ? {
+                label: t("admin.stats.revenue"),
+                value: formatMoney(revenueAgg[0]?.total || 0, currency, locale),
+                hint: t("admin.stats.outstanding", { amount: formatMoney(outstandingAgg[0]?.total || 0, currency, locale) }),
+              }
+            : { label: t("admin.stats.upcoming"), value: lessons.length, hint: t("admin.stats.upcomingHint") },
           {
             label: t("admin.stats.toGrade"),
             value: toGrade,
             alert: toGrade > 0,
-            hint: t("admin.stats.newInquiries", { n: newInquiries }),
+            hint: money ? t("admin.stats.newInquiries", { n: newInquiries }) : t("admin.stats.toGradeHint"),
           },
         ]}
       />
@@ -74,6 +97,7 @@ export default async function AdminOverview() {
       <div className="mt-5 grid gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">
           {/* --------------------------------------------- enrolment requests */}
+          {decide && (
           <Panel
             title={t("admin.overview.requests")}
             action={
@@ -122,6 +146,7 @@ export default async function AdminOverview() {
               <EmptyState icon={<Layers className="size-4" />} title={t("admin.overview.noRequests")} />
             )}
           </Panel>
+          )}
 
           {/* ------------------------------------------------ upcoming classes */}
           <Panel title={t("admin.overview.upcoming")} bodyClassName="divide-y divide-line">
@@ -136,7 +161,7 @@ export default async function AdminOverview() {
         <div className="space-y-5">
           {/* ------------------------------------------------- running courses */}
           <Panel
-            title={t("admin.overview.running")}
+            title={t(owner ? "admin.overview.running" : "admin.overview.myCourses")}
             action={
               <Link href="/admin/courses" className="text-[11.5px] font-semibold text-navy-700 hover:underline">
                 {t("common.viewAll")}

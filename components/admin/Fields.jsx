@@ -13,7 +13,15 @@ function F({ label, hint, full, children }) {
   );
 }
 
-export function CourseFields({ t, course = {} }) {
+/**
+ * The course form. A teacher assigned to the course may change how it runs —
+ * the schedule line, the classroom, the description — but never what it costs,
+ * how many seats it has, whether it is published, or who teaches it. Those
+ * fields are not merely disabled: they are never rendered, and the server
+ * ignores them for anyone but the owner.
+ */
+export function CourseFields({ t, course = {}, owner = true, staff = [] }) {
+  if (!owner) return <TeachingFields t={t} course={course} />;
   return (
     <>
       <F label={`${t("admin.fields.title")} *`} full>
@@ -55,6 +63,12 @@ export function CourseFields({ t, course = {} }) {
           <option value="external">{t("admin.fields.classroomExternal")}</option>
         </select>
       </F>
+      <F label={t("admin.fields.studentCameras")} hint={t("admin.fields.studentCamerasHint")} full>
+        <select name="studentCameras" defaultValue={course.studentCameras || "off"} className="input">
+          <option value="off">{t("admin.fields.camerasOff")}</option>
+          <option value="on">{t("admin.fields.camerasOn")}</option>
+        </select>
+      </F>
       <F label={t("admin.fields.meetingUrl")} hint={t("admin.fields.meetingUrlHint")} full>
         <input name="meetingUrl" defaultValue={course.meetingUrl} className="input" placeholder="https://zoom.us/j/…" dir="ltr" />
       </F>
@@ -66,6 +80,74 @@ export function CourseFields({ t, course = {} }) {
           {["draft", "published", "archived"].map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
         </select>
       </F>
+      <F label={t("admin.fields.teacher")} hint={t("admin.fields.teacherHint")} full>
+        <select name="teacher" defaultValue={course.teacher ? String(course.teacher) : ""} className="input">
+          <option value="">{t("admin.fields.teacherNone")}</option>
+          {staff.map((person) => (
+            <option key={person._id} value={person._id}>{person.name}</option>
+          ))}
+        </select>
+      </F>
+    </>
+  );
+}
+
+/** What a teacher may change about a course they run. */
+function TeachingFields({ t, course }) {
+  return (
+    <>
+      <F label={t("admin.fields.schedule")} hint={t("admin.fields.scheduleHint")} full>
+        <input name="schedule" defaultValue={course.schedule} className="input" placeholder="Mon & Wed · 18:00–19:30" />
+      </F>
+      <F label={t("admin.fields.classroom")} hint={t("admin.fields.classroomHint")} full>
+        <select name="classroom" defaultValue={course.classroom || "builtin"} className="input">
+          <option value="builtin">{t("admin.fields.classroomBuiltin")}</option>
+          <option value="external">{t("admin.fields.classroomExternal")}</option>
+        </select>
+      </F>
+      <F label={t("admin.fields.studentCameras")} hint={t("admin.fields.studentCamerasHint")} full>
+        <select name="studentCameras" defaultValue={course.studentCameras || "off"} className="input">
+          <option value="off">{t("admin.fields.camerasOff")}</option>
+          <option value="on">{t("admin.fields.camerasOn")}</option>
+        </select>
+      </F>
+      <F label={t("admin.fields.meetingUrl")} hint={t("admin.fields.meetingUrlHint")} full>
+        <input name="meetingUrl" defaultValue={course.meetingUrl} className="input" placeholder="https://zoom.us/j/…" dir="ltr" />
+      </F>
+      <F label={t("admin.fields.description")} full>
+        <textarea name="description" rows={4} defaultValue={course.description} className="input" />
+      </F>
+    </>
+  );
+}
+
+/** A colleague's account. */
+export function StaffFields({ t, person = {}, creating = false }) {
+  return (
+    <>
+      <F label={`${t("form.fullName")} *`} full>
+        <input name="name" required defaultValue={person.name} className="input" />
+      </F>
+      <F label={`${t("form.email")} *`}>
+        <input type="email" name="email" required defaultValue={person.email} className="input" dir="ltr" />
+      </F>
+      <F label={t("form.phone")}>
+        <input name="phone" defaultValue={person.phone} className="input" dir="ltr" />
+      </F>
+      <F label={t("admin.staff.jobTitle")} hint={t("admin.staff.jobTitleHint")} full>
+        <input name="title" defaultValue={person.title} className="input" placeholder="Sprachcoach" />
+      </F>
+      <F label={`${t("admin.staff.role")} *`} hint={t("admin.staff.roleHint")} full>
+        <select name="role" defaultValue={person.role === "owner" || person.role === "admin" ? "owner" : "teacher"} className="input">
+          <option value="teacher">{t("admin.staff.roles.teacher")}</option>
+          <option value="owner">{t("admin.staff.roles.owner")}</option>
+        </select>
+      </F>
+      {creating && (
+        <F label={`${t("form.password")} *`} hint={t("admin.staff.passwordHint")} full>
+          <input type="password" name="password" required minLength={8} className="input" dir="ltr" autoComplete="new-password" />
+        </F>
+      )}
     </>
   );
 }
@@ -138,7 +220,8 @@ export function AssignmentFields({ t, assignment = {}, courseId, storage, lesson
   );
 }
 
-export function AnnouncementFields({ t, announcement = {}, courses = [], fixedCourseId, storage }) {
+/** `everyone` is offered only to the owner; a teacher writes to a course. */
+export function AnnouncementFields({ t, announcement = {}, courses = [], fixedCourseId, storage, everyone = true }) {
   return (
     <>
       <F label={`${t("admin.fields.title")} *`} full>
@@ -148,8 +231,8 @@ export function AnnouncementFields({ t, announcement = {}, courses = [], fixedCo
         <input type="hidden" name="course" value={fixedCourseId} />
       ) : (
         <F label={t("admin.fields.audience")} full>
-          <select name="course" defaultValue={announcement.course?._id || announcement.course || ""} className="input">
-            <option value="">{t("announcements.everyone")}</option>
+          <select name="course" defaultValue={announcement.course?._id || announcement.course || (everyone ? "" : courses[0]?._id)} required={!everyone} className="input">
+            {everyone && <option value="">{t("announcements.everyone")}</option>}
             {courses.map((c) => <option key={c._id} value={c._id}>{c.level} · {c.title}</option>)}
           </select>
         </F>

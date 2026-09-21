@@ -3,7 +3,7 @@ import { Inbox, Mail, Phone, Trash2 } from "lucide-react";
 import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import ActionButton from "@/components/ui/ActionButton";
-import { requireAdmin } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import connectDB from "@/lib/mongodb";
 import Inquiry from "@/models/Inquiry";
@@ -15,7 +15,7 @@ const FILTERS = ["new", "contacted", "closed", "all"];
 export default async function InquiriesPage({ searchParams }) {
   const { status: raw } = await searchParams;
   const status = FILTERS.includes(raw) ? raw : "new";
-  await requireAdmin();
+  await requireOwner();
   const { t, locale } = await getI18n();
   await connectDB();
   const items = plain(await Inquiry.find(status === "all" ? {} : { status }).sort({ createdAt: -1 }).limit(300).lean());
