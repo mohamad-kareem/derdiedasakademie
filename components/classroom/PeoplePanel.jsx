@@ -3,13 +3,14 @@
 import { useParticipants, useParticipantAttributes } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { Mic, MicOff, Video, VideoOff, Hand, Crown, MonitorUp, UserX, HandMetal } from "lucide-react";
+import { ConnectionQuality } from "livekit-client";
 import { useI18n } from "@/components/I18nProvider";
 import { avatarSrc } from "@/components/ui/Avatar";
 import { cn, initials } from "@/lib/utils";
 
 const SIGNAL_ICON = { understood: "✅", repeat: "🔁", slower: "🐢", question: "❓" };
 
-function Row({ p, me, isTeacher, signal, screenAllowed, onMute, onRemove, onToggleScreen, onLowerHand }) {
+function Row({ p, me, isTeacher, signal, screenAllowed, onMute, onCameraOff, onAsk, onRemove, onToggleScreen, onLowerHand }) {
   const { t } = useI18n();
   const { attributes } = useParticipantAttributes({ participant: p });
   const mic = p.getTrackPublication(Track.Source.Microphone);
@@ -36,6 +37,7 @@ function Row({ p, me, isTeacher, signal, screenAllowed, onMute, onRemove, onTogg
         </p>
         <p className="text-[11px] text-white/40">{teacher ? t("classroom.teacher") : t("classroom.student")}</p>
       </div>
+      <Quality q={p.connectionQuality} t={t} />
       {signal && <span title={t(`classroom.signals.${signal}`)}>{SIGNAL_ICON[signal]}</span>}
       {hand && (
         <button type="button" disabled={!isTeacher && !self} onClick={() => onLowerHand(p.identity)} className="text-gold-400" title={t("classroom.lowerHand")}>
@@ -46,9 +48,24 @@ function Row({ p, me, isTeacher, signal, screenAllowed, onMute, onRemove, onTogg
       {camOn ? <Video className="size-4 text-white/60" /> : <VideoOff className="size-4 text-white/30" />}
       {isTeacher && !self && !teacher && (
         <div className="flex items-center gap-0.5">
-          <button type="button" disabled={!micOn} onClick={() => onMute(p.identity, mic?.trackSid)} className="rounded p-1 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-30" title={t("classroom.mute")}>
-            <MicOff className="size-3.5" />
-          </button>
+          {micOn ? (
+            <button type="button" onClick={() => onMute(p.identity, mic?.trackSid)} className="rounded p-1 text-white/50 hover:bg-white/10 hover:text-white" title={t("classroom.mute")}>
+              <MicOff className="size-3.5" />
+            </button>
+          ) : (
+            <button type="button" onClick={() => onAsk(p.identity, "mic")} className="rounded p-1 text-white/50 hover:bg-white/10 hover:text-white" title={t("classroom.askMic")}>
+              <Mic className="size-3.5" />
+            </button>
+          )}
+          {camOn ? (
+            <button type="button" onClick={() => onCameraOff(p.identity, cam?.trackSid)} className="rounded p-1 text-white/50 hover:bg-white/10 hover:text-white" title={t("classroom.cameraOff")}>
+              <VideoOff className="size-3.5" />
+            </button>
+          ) : (
+            <button type="button" onClick={() => onAsk(p.identity, "camera")} className="rounded p-1 text-white/50 hover:bg-white/10 hover:text-white" title={t("classroom.askCamera")}>
+              <Video className="size-3.5" />
+            </button>
+          )}
           <button type="button" onClick={() => onToggleScreen(p.identity, !screenAllowed)} className={cn("rounded p-1 hover:bg-white/10", screenAllowed ? "text-gold-400" : "text-white/50 hover:text-white")} title={t("classroom.allowScreen")}>
             <MonitorUp className="size-3.5" />
           </button>
@@ -61,7 +78,24 @@ function Row({ p, me, isTeacher, signal, screenAllowed, onMute, onRemove, onTogg
   );
 }
 
-export default function PeoplePanel({ me, isTeacher, signals, screenAllowed, onMute, onMuteAll, onRemove, onToggleScreen, onLowerHand, onLowerAll }) {
+/** A dot for how well this person is connected — grey while it is unknown. */
+function Quality({ q, t }) {
+  const tone =
+    q === ConnectionQuality.Excellent ? "bg-emerald-400"
+    : q === ConnectionQuality.Good ? "bg-amber-300"
+    : q === ConnectionQuality.Poor ? "bg-red-400"
+    : q === ConnectionQuality.Lost ? "bg-red-500 animate-pulse"
+    : "bg-white/20";
+  const label =
+    q === ConnectionQuality.Excellent ? "excellent"
+    : q === ConnectionQuality.Good ? "good"
+    : q === ConnectionQuality.Poor ? "poor"
+    : q === ConnectionQuality.Lost ? "lost"
+    : "unknown";
+  return <span className={cn("size-2 shrink-0 rounded-full", tone)} title={t(`classroom.quality.${label}`)} aria-label={t(`classroom.quality.${label}`)} />;
+}
+
+export default function PeoplePanel({ me, isTeacher, signals, screenAllowed, onMute, onMuteAll, onCameraOff, onAsk, onRemove, onToggleScreen, onLowerHand, onLowerAll }) {
   const { t } = useI18n();
   const participants = useParticipants();
   const sorted = [...participants].sort((a, b) => {
@@ -86,7 +120,7 @@ export default function PeoplePanel({ me, isTeacher, signals, screenAllowed, onM
       </p>
       <ul className="flex-1 space-y-0.5 overflow-y-auto p-2">
         {sorted.map((p) => (
-          <Row key={p.identity} p={p} me={me} isTeacher={isTeacher} signal={signals[p.identity]} screenAllowed={screenAllowed.includes(p.identity)} onMute={onMute} onRemove={onRemove} onToggleScreen={onToggleScreen} onLowerHand={onLowerHand} />
+          <Row key={p.identity} p={p} me={me} isTeacher={isTeacher} signal={signals[p.identity]} screenAllowed={screenAllowed.includes(p.identity)} onMute={onMute} onCameraOff={onCameraOff} onAsk={onAsk} onRemove={onRemove} onToggleScreen={onToggleScreen} onLowerHand={onLowerHand} />
         ))}
       </ul>
     </div>

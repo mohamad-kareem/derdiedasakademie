@@ -37,7 +37,7 @@ export default async function ClassroomPage({ params }) {
   const access = await classroomAccess(user, id);
   if (access.reason === "notFound") notFound();
 
-  const isTeacher = user.role === "admin";
+  const isTeacher = Boolean(access.isTeacher);
   const back = access.course ? (isTeacher ? `/admin/courses/${access.course._id}` : `/dashboard/courses/${access.course._id}`) : "/";
   const backLabel = t("classroom.backToCourse");
 
@@ -55,8 +55,14 @@ export default async function ClassroomPage({ params }) {
   if (access.reason) return <StatusScreen icon={Ban} title={t("classroom.noAccess")} text={t("classroom.noAccessText")} back={back} backLabel={backLabel} />;
 
   const { lesson, course } = access;
+
+  // If the class is split into groups, a student belongs in theirs — including
+  // after a reload, which is why the split is stored rather than only announced.
+  const mine = (lesson.breakout?.assignments || []).find((a) => String(a.user) === user.id);
+  const group = lesson.breakout?.active && !isTeacher && mine ? mine.group : 0;
+
   const [token, messages, poll, vocab, resources] = await Promise.all([
-    createClassToken({ user, lessonId: id, isTeacher }),
+    createClassToken({ user, lessonId: id, isTeacher, group }),
     ChatMessage.find({ lesson: id }).sort({ createdAt: -1 }).limit(150).lean(),
     Poll.findOne({ lesson: id, status: "open" }).lean(),
     VocabItem.find({ course: course._id }).sort({ createdAt: -1 }).limit(300).lean(),
@@ -74,10 +80,12 @@ export default async function ClassroomPage({ params }) {
     <ClassroomApp
       serverUrl={process.env.LIVEKIT_URL}
       token={token}
+      initialGroup={group}
+      breakoutActive={Boolean(lesson.breakout?.active)}
       me={{ id: user.id, name: user.name }}
       isTeacher={isTeacher}
       lesson={plain({ _id: lesson._id, title: lesson.title, startsAt: lesson.startsAt, durationMin: lesson.durationMin })}
-      course={plain({ _id: course._id, title: course.title, level: course.level })}
+      course={plain({ _id: course._id, title: course.title, level: course.level, studentCameras: course.studentCameras || "off" })}
       docs={plain(docs)}
       initial={plain({
         messages: messages.reverse().map((m) => ({ _id: m._id, user: m.user, name: m.name, role: m.role, text: m.text, attachment: m.attachment, createdAt: m.createdAt })),

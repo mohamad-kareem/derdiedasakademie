@@ -12,6 +12,15 @@ const LessonSchema = new mongoose.Schema(
     materials: [{ title: String, url: String }],
     attachments: [AttachmentSchema],
     roomLocked: { type: Boolean, default: false },
+    // Break-out groups. `assignments` maps a person to a group number (1..n);
+    // it is kept on the lesson so that reloading a page puts someone back in
+    // the group they were in rather than the main room.
+    breakout: {
+      active: { type: Boolean, default: false },
+      groups: { type: Number, default: 0 },
+      startedAt: Date,
+      assignments: [{ user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, group: Number, _id: false }],
+    },
     endedAt: Date,
   },
   { timestamps: true },

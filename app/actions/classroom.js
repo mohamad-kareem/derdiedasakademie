@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import connectDB from "@/lib/mongodb";
 import { actionUser } from "@/lib/auth";
 import { classroomAccess } from "@/lib/classroom";
-import { roomService, roomNameFor, isLiveKitConfigured, PRESENTER_SOURCES, STUDENT_SOURCES } from "@/lib/livekit";
+import { roomService, roomNameFor, createClassToken, isLiveKitConfigured, PRESENTER_SOURCES, STUDENT_SOURCES } from "@/lib/livekit";
 import { isId, fail, done } from "@/lib/validate";
 import Lesson from "@/models/Lesson";
 import Attendance from "@/models/Attendance";
@@ -197,4 +197,120 @@ export async function endClass(lessonId) {
   }
   revalidatePath("/", "layout");
   return done();
+}
+
+/* ---------- break-out groups ---------- */
+
+/**
+ * Break-out groups work like Zoom's or Webex's: the class splits into separate
+ * rooms, each with its own video, whiteboard and chat, and comes back together
+ * on the teacher's word.
+ *
+ * The split is recorded on the lesson rather than only announced, so that a
+ * student whose browser reloads lands back in their own group; and the call to
+ * come back is sent by the server into every group room, because by then the
+ * teacher is only in one of them.
+ */
+
+const encoder = new TextEncoder();
+
+/** Sends one of our ordinary bus messages into a room, from the server. */
+async function tell(room, type, payload = {}) {
+  const body = encoder.encode(JSON.stringify({ type, payload }));
+  await roomService().sendData(room, body, 0, { topic: "ddd" });
+}
+
+/** A token for the room this person belongs in — the main one, or their group. */
+export async function joinRoom(lessonId, group = 0) {
+  const { user, lesson, isTeacher } = await inRoom(lessonId);
+  if (!user || !lesson || !isLiveKitConfigured()) return fail("errors.forbidden");
+
+  const n = Math.max(0, Math.min(20, Math.round(Number(group) || 0)));
+
+  // A student may only enter the group they were put in; the teacher goes anywhere.
+  if (!isTeacher && n > 0) {
+    const mine = (lesson.breakout?.assignments || []).find((a) => String(a.user) === user.id);
+    if (!lesson.breakout?.active || !mine || mine.group !== n) return fail("errors.forbidden");
+  }
+
+  const token = await createClassToken({ user, lessonId, isTeacher, group: n });
+  return { ok: true, token, group: n };
+}
+
+/**
+ * Splits the class. `assignments` is a plain map of user id to group number,
+ * decided in the browser where the teacher can see who is present.
+ */
+export async function startBreakouts(lessonId, assignments) {
+  const { user, isTeacher } = await inRoom(lessonId, { teacherOnly: true });
+  if (!user || !isTeacher || !isLiveKitConfigured()) return fail("errors.forbidden");
+  if (!assignments || typeof assignments !== "object") return fail("errors.generic");
+
+  const clean = [];
+  let groups = 0;
+  for (const [id, raw] of Object.entries(assignments)) {
+    const group = Math.round(Number(raw) || 0);
+    if (!isId(id) || group < 1 || group > 20) continue;
+    clean.push({ user: id, group });
+    groups = Math.max(groups, group);
+  }
+  if (!clean.length) return fail("errors.generic");
+
+  await Lesson.updateOne(
+    { _id: lessonId },
+    { breakout: { active: true, groups, startedAt: new Date(), assignments: clean } },
+  );
+  await tell(roomNameFor(lessonId), "breakout:start", {
+    groups,
+    assignments: Object.fromEntries(clean.map((a) => [String(a.user), a.group])),
+  });
+  return done();
+}
+
+/** Brings everyone back to the main room. */
+export async function endBreakouts(lessonId) {
+  const { user, lesson, isTeacher } = await inRoom(lessonId, { teacherOnly: true });
+  if (!user || !isTeacher || !isLiveKitConfigured()) return fail("errors.forbidden");
+
+  const groups = lesson?.breakout?.groups || 0;
+  await Lesson.updateOne({ _id: lessonId }, { "breakout.active": false });
+  await Promise.all(
+    Array.from({ length: groups }, (_, i) => tell(roomNameFor(lessonId, i + 1), "breakout:end", {}).catch(() => {})),
+  );
+  return done();
+}
+
+/** A line from the teacher, delivered into every group at once. */
+export async function messageBreakouts(lessonId, text) {
+  const { user, lesson, isTeacher } = await inRoom(lessonId, { teacherOnly: true });
+  if (!user || !isTeacher || !isLiveKitConfigured()) return fail("errors.forbidden");
+  const clean = String(text || "").trim().slice(0, 500);
+  if (!clean) return fail("errors.generic");
+
+  const groups = lesson?.breakout?.groups || 0;
+  await Promise.all(
+    Array.from({ length: groups }, (_, i) =>
+      tell(roomNameFor(lessonId, i + 1), "breakout:note", { text: clean, from: user.name }).catch(() => {}),
+    ),
+  );
+  return done();
+}
+
+/** Who is in which group right now, for the teacher's panel. */
+export async function breakoutPresence(lessonId) {
+  const { user, lesson, isTeacher } = await inRoom(lessonId, { teacherOnly: true });
+  if (!user || !isTeacher || !isLiveKitConfigured()) return { ok: false, rooms: [] };
+  const groups = lesson?.breakout?.groups || 0;
+  const svc = roomService();
+  const rooms = await Promise.all(
+    Array.from({ length: groups }, async (_, i) => {
+      try {
+        const people = await svc.listParticipants(roomNameFor(lessonId, i + 1));
+        return { group: i + 1, people: people.map((p) => ({ identity: p.identity, name: p.name })) };
+      } catch {
+        return { group: i + 1, people: [] };
+      }
+    }),
+  );
+  return { ok: true, rooms };
 }

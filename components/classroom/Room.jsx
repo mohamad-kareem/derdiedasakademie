@@ -7,7 +7,7 @@ import {
 } from "@livekit/components-react";
 import { Track, RoomEvent, ConnectionState, DisconnectReason } from "livekit-client";
 import {
-  Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, Hand, Smile, MessageSquare, Users, ListChecks, BookA, PhoneOff,
+  Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, Hand, Smile, MessageSquare, Users, ListChecks, BookA, PhoneOff, Boxes,
   LayoutGrid, PenLine, FileText, Lock, Unlock, X, ChevronLeft, ChevronRight, Plus, Upload, Loader2, Power, Keyboard,
 } from "lucide-react";
 import { useBus } from "./useBus";
@@ -15,6 +15,7 @@ import VideoTile from "./VideoTile";
 import Whiteboard from "./Whiteboard";
 import ChatPanel from "./ChatPanel";
 import PeoplePanel from "./PeoplePanel";
+import GroupsPanel from "./GroupsPanel";
 import QuizPanel, { PollAnswer } from "./QuizPanel";
 import WordsPanel from "./WordsPanel";
 import GermanKeyboard from "./GermanKeyboard";
@@ -22,7 +23,7 @@ import { ARTICLE_COLORS } from "./boardDraw";
 import { useI18n } from "@/components/I18nProvider";
 import { toast } from "@/components/ui/Toaster";
 import {
-  heartbeat, sendChatMessage, createPoll, answerPoll, closePoll, addVocab, deleteVocab, muteParticipant, removeParticipant,
+  heartbeat, sendChatMessage, createPoll, answerPoll, closePoll, addVocab, deleteVocab, muteParticipant, setParticipantCamera, removeParticipant,
   setScreenSharePermission, setRoomLocked, endClass,
 } from "@/app/actions/classroom";
 import { uploadFile } from "@/lib/upload-client";
@@ -66,7 +67,7 @@ function CtrlButton({ active, danger, onClick, icon: I, label, badge, disabled, 
   );
 }
 
-export default function Room({ me, isTeacher, lesson, course, docs: initialDocs, initial, storage, backHref, initiallyLocked }) {
+export default function Room({ me, isTeacher, lesson, course, docs: initialDocs, initial, storage, backHref, initiallyLocked, group = 0, breakoutActive = false, onSwitchRoom }) {
   const { t } = useI18n();
   const router = useRouter();
   const room = useRoomContext();
@@ -101,6 +102,9 @@ export default function Room({ me, isTeacher, lesson, course, docs: initialDocs,
   const [menu, setMenu] = useState(null); // "react" | "docs" | "keys"
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [ended, setEnded] = useState(false);
+  const [ask, setAsk] = useState(null); // { what: "camera" | "mic", from }
+  // A teacher who reloads mid-split should still see the monitor, not the planner.
+  const [breakouts, setBreakouts] = useState(breakoutActive ? { groups: 0, assignments: {} } : null);
   const stateRef = useRef({});
   const panelRef = useRef(panel);
   const docInput = useRef(null);
@@ -192,6 +196,29 @@ export default function Room({ me, isTeacher, lesson, course, docs: initialDocs,
           case "signal":
             flashSignal(from, payload.kind);
             if (isTeacher) toast(`${sender?.name}: ${SIGNAL_ICON[payload.kind]} ${t(`classroom.signals.${payload.kind}`)}`);
+            break;
+          case "breakout:start":
+            // Announced in the main room, so everyone hears it at once.
+            if (senderIsTeacher || !sender) {
+              const mineNow = payload.assignments?.[me.id];
+              if (!isTeacher && mineNow) onSwitchRoom?.(Number(mineNow));
+              if (isTeacher) setBreakouts({ groups: payload.groups, assignments: payload.assignments });
+            }
+            break;
+          case "breakout:end":
+            // Sent by the server into each group room, where the teacher is not.
+            if (!sender || senderIsTeacher) {
+              if (group > 0) onSwitchRoom?.(0);
+              if (isTeacher) setBreakouts(null);
+            }
+            break;
+          case "breakout:note":
+            if (!sender || senderIsTeacher) toast(`${payload.from}: ${payload.text}`);
+            break;
+          case "ask":
+            // The teacher would like this person's camera or microphone on.
+            // Only they can actually do it, so they are asked, not switched.
+            if (senderIsTeacher) setAsk({ what: payload.what, from: sender?.name || t("classroom.teacher") });
             break;
           case "hand:lower":
             if (senderIsTeacher && (payload.all || payload.identity === me.id)) room.localParticipant.setAttributes({ hand: "" }).catch(() => {});
@@ -385,6 +412,22 @@ export default function Room({ me, isTeacher, lesson, course, docs: initialDocs,
     }));
     toast(t("classroom.mutedAll", { n: tasks.length }));
   }
+  /**
+   * A camera can be switched off from here, but never on: a browser will not
+   * let a page start someone's camera without them pressing something. So the
+   * teacher asks, and the student gets a prompt with the button.
+   */
+  async function cameraOff(identity, trackSid) {
+    if (!trackSid) return;
+    const res = await setParticipantCamera(lesson._id, identity, trackSid, true);
+    if (!res.ok) toast(t(res.error), "error");
+  }
+  function askFor(identity, what) {
+    const who = participants.find((p) => p.identity === identity);
+    send("ask", { what }, { to: [identity] });
+    toast(t("classroom.asked", { name: who?.name || "" }));
+  }
+
   async function remove(identity) {
     const res = await removeParticipant(lesson._id, identity);
     if (!res.ok) toast(t(res.error), "error");
@@ -469,6 +512,7 @@ export default function Room({ me, isTeacher, lesson, course, docs: initialDocs,
     { id: "people", icon: Users, label: t("classroom.panels.people"), badge: participants.filter((p) => p.attributes?.hand === "1").length },
     { id: "quiz", icon: ListChecks, label: t("classroom.panels.quiz"), badge: !isTeacher && poll && myChoice < 0 ? 1 : 0 },
     { id: "words", icon: BookA, label: t("classroom.panels.words") },
+    ...(isTeacher ? [{ id: "groups", icon: Boxes, label: t("classroom.panels.groups"), badge: breakouts ? 1 : 0 }] : []),
   ];
 
   return (
@@ -488,6 +532,11 @@ export default function Room({ me, isTeacher, lesson, course, docs: initialDocs,
             <span className="ms-2 hidden font-normal text-white/45 sm:inline">· {course.title}</span>
           </p>
         </div>
+        {group > 0 && (
+          <span className="flex items-center gap-1 rounded-full bg-gold-500/20 px-2 py-0.5 text-[11px] font-semibold text-gold-300">
+            <Boxes className="size-3" /> {t("classroom.groups.group", { n: group })}
+          </span>
+        )}
         {locked && isTeacher && <Lock className="size-4 text-gold-400" />}
         <span className="hidden font-mono text-xs text-white/60 sm:inline" dir="ltr">{elapsed}</span>
         <span className="flex items-center gap-1 text-xs text-white/60"><Users className="size-3.5" /> {participants.length}</span>
@@ -616,6 +665,35 @@ export default function Room({ me, isTeacher, lesson, course, docs: initialDocs,
               />
             )}
 
+            {/* the teacher has asked for a camera or a microphone */}
+            {ask && (
+              <div className="absolute inset-x-0 bottom-3 z-30 mx-auto w-full max-w-sm rounded-2xl border border-gold-500/50 bg-navy-900/95 p-4 text-center shadow-2xl backdrop-blur">
+                <p className="text-sm text-white">
+                  {t(ask.what === "camera" ? "classroom.askedCamera" : "classroom.askedMic", { name: ask.from })}
+                </p>
+                <div className="mt-3 flex justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        if (ask.what === "camera") await localParticipant.setCameraEnabled(true);
+                        else await localParticipant.setMicrophoneEnabled(true);
+                      } catch {
+                        toast(t("classroom.deviceError"), "error");
+                      }
+                      setAsk(null);
+                    }}
+                    className="btn btn-sm bg-gold-500 text-white hover:bg-gold-600"
+                  >
+                    {ask.what === "camera" ? <Video className="size-3.5" /> : <Mic className="size-3.5" />} {t("classroom.turnOn")}
+                  </button>
+                  <button type="button" onClick={() => setAsk(null)} className="btn btn-sm bg-white/10 text-white hover:bg-white/20">
+                    {t("classroom.notNow")}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* floating reactions */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               {reactions.map((r) => (
@@ -714,10 +792,20 @@ export default function Room({ me, isTeacher, lesson, course, docs: initialDocs,
             <div className="min-h-0 flex-1">
               {panel === "chat" && <ChatPanel messages={messages} me={me.id} courseId={course._id} storage={storage} onSend={onChatSend} />}
               {panel === "people" && (
-                <PeoplePanel me={me.id} isTeacher={isTeacher} signals={signals} screenAllowed={screenAllowed} onMute={mute} onMuteAll={muteAll} onRemove={remove} onToggleScreen={toggleScreenPermission} onLowerHand={lowerHand} onLowerAll={() => send("hand:lower", { all: true })} />
+                <PeoplePanel me={me.id} isTeacher={isTeacher} signals={signals} screenAllowed={screenAllowed} onMute={mute} onMuteAll={muteAll} onCameraOff={cameraOff} onAsk={askFor} onRemove={remove} onToggleScreen={toggleScreenPermission} onLowerHand={lowerHand} onLowerAll={() => send("hand:lower", { all: true })} />
               )}
               {panel === "quiz" && (
                 <QuizPanel isTeacher={isTeacher} poll={poll} counts={counts} myChoice={myChoice} lastClosed={lastClosed} participantsCount={participants.length} onCreate={onCreatePoll} onClose={onClosePoll} onAnswer={onAnswer} />
+              )}
+              {panel === "groups" && isTeacher && (
+                <GroupsPanel
+                  lessonId={lesson._id}
+                  me={me.id}
+                  running={breakouts}
+                  group={group}
+                  onSwitchRoom={onSwitchRoom}
+                  onRunning={setBreakouts}
+                />
               )}
               {panel === "words" && <WordsPanel isTeacher={isTeacher} vocab={vocab} onAdd={onAddVocab} onDelete={onDeleteVocab} onSpotlight={(item) => changeStage({ mode: "word", word: item })} />}
             </div>
