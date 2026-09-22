@@ -107,6 +107,26 @@ head_ "7. Answering from outside"
 code=$(curl -s -m 8 -o /dev/null -w '%{http_code}' "https://${LK_DOMAIN:-localhost}/" || echo 000)
 if [ "$code" = "200" ]; then ok "https answers (200)"; else bad "https answered $code — students would not get in"; fi
 
+head_ "8. Is the server new enough for the browsers?"
+# Browsers ask for the new signalling path first (/rtc/v1). An older server
+# answers 404, the browser notices, and tries the old path — a wasted round
+# trip on every single join AND on every reconnect. On a shaky phone
+# connection that wasted trip is often the difference between a wobble that
+# recovers quietly and the red banner.
+if command -v docker >/dev/null 2>&1; then
+  ver=$(docker exec livekit /livekit-server --version 2>/dev/null | head -1)
+  [ -n "$ver" ] && printf '  running   %s\n' "$ver"
+fi
+v1=$(curl -s -m 8 -o /dev/null -w '%{http_code}' "http://127.0.0.1:7880/rtc/v1?access_token=probe" || echo 000)
+if [ "$v1" = "404" ]; then
+  bad "this server does not speak the new signalling path — every join costs an extra failed attempt"
+  echo "      Fix it in one minute, from this folder:"
+  echo "          sudo docker compose pull && sudo docker compose up -d"
+  echo "      Do it between classes: it restarts the server, which disconnects anyone in a class."
+else
+  ok "the new signalling path is served (answered $v1)"
+fi
+
 printf '\n'
 if [ "$FAULTS" -eq 0 ]; then
   printf '\033[32mNothing wrong on the server.\033[0m If a class still dropped, it was one\n'

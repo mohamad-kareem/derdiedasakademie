@@ -46,7 +46,7 @@ export async function heartbeat(lessonId) {
 /* ---------- chat ---------- */
 
 export async function sendChatMessage(lessonId, { text = "", attachment = null }) {
-  const { user, course } = await inRoom(lessonId);
+  const { user, course, isTeacher } = await inRoom(lessonId);
   if (!user) return fail("errors.forbidden");
   const prefix = `courses/${course._id}/chat/`;
   const file =
@@ -55,7 +55,7 @@ export async function sendChatMessage(lessonId, { text = "", attachment = null }
       : null;
   const clean = String(text).trim().slice(0, 2000);
   if (!clean && !file) return fail("errors.generic");
-  const msg = await ChatMessage.create({ lesson: lessonId, user: user.id, name: user.name, role: access.isTeacher ? "teacher" : "student", text: clean, attachment: file });
+  const msg = await ChatMessage.create({ lesson: lessonId, user: user.id, name: user.name, role: isTeacher ? "teacher" : "student", text: clean, attachment: file });
   return { ok: true, data: serializeMessage(msg) };
 }
 

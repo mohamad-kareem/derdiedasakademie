@@ -13,12 +13,18 @@ import { Loader2, WifiOff, RotateCw } from "lucide-react";
  * reconnecting, and only when the browser has stopped trying does it become a
  * red notice with a button, because at that point there is something to do.
  */
-export default function ConnectionNotice({ status, onRejoin, t }) {
+export default function ConnectionNotice({ status, onRejoin, onSettled, t }) {
   const state = useConnectionState();
   const [slow, setSlow] = useState(false);
 
   const unsettled = state === ConnectionState.Reconnecting || state === ConnectionState.SignalReconnecting;
   const lost = status === "lost" && state !== ConnectionState.Connected;
+
+  // A connection that comes back on its own leaves no trace: the moment the
+  // room reports itself connected again, whatever we were worried about is over.
+  useEffect(() => {
+    if (state === ConnectionState.Connected) onSettled?.();
+  }, [state, onSettled]);
 
   useEffect(() => {
     if (!unsettled) {
