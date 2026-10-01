@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, BookOpen, GraduationCap, ClipboardList, User, Users, Megaphone, Inbox,
-  CalendarDays, Settings, LogOut, FileCheck2, Award, Home, Mail, Layers, MessageSquare, Gauge, UserCog,
+  CalendarDays, Settings, LogOut, FileCheck2, Award, Home, Mail, Layers, MessageSquare, Gauge, UserCog, Library,
 } from "lucide-react";
 
 const icons = {
@@ -23,6 +23,7 @@ const icons = {
   message: MessageSquare,
   usage: Gauge,
   staff: UserCog,
+  library: Library,
 };
 
 export default function Icon({ name, ...props }) {

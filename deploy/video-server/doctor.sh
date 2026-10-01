@@ -127,6 +127,25 @@ else
   ok "the new signalling path is served (answered $v1)"
 fi
 
+head_ "9. Course material"
+if [ -d /srv/ddd-material ]; then
+  n=$(find /srv/ddd-material -type f ! -name '.*' 2>/dev/null | wc -l)
+  size=$(du -sh /srv/ddd-material 2>/dev/null | cut -f1)
+  ok "folder present — $n files, $size"
+  if curl -fs -m 5 http://127.0.0.1:7890/m-api/health >/dev/null; then
+    ok "signature checker answering"
+  else
+    bad "the signature checker is not running — students cannot open material"
+    echo "      sudo systemctl restart ddd-material ; sudo journalctl -u ddd-material -n 30"
+  fi
+  free_gb=$(df -BG /srv/ddd-material | awk 'NR==2 {gsub("G","",$4); print $4}')
+  if [ "${free_gb:-0}" -lt 5 ]; then
+    bad "only ${free_gb} GB free on the disk — uploads stop below 2 GB"
+  fi
+else
+  warn "not set up (optional) — see Part 5 of the README"
+fi
+
 printf '\n'
 if [ "$FAULTS" -eq 0 ]; then
   printf '\033[32mNothing wrong on the server.\033[0m If a class still dropped, it was one\n'

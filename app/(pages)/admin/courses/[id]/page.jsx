@@ -14,6 +14,8 @@ import AttachmentList from "@/components/files/AttachmentList";
 import Resource from "@/models/Resource";
 import Attendance from "@/models/Attendance";
 import { isStorageConfigured } from "@/lib/storage";
+import { materialIndex, shelfFor } from "@/lib/material";
+import { formatBytes } from "@/lib/files-client";
 import { isLiveKitConfigured } from "@/lib/livekit";
 import { requireStaff } from "@/lib/auth";
 import { can, isOwner, teaches, portalKey } from "@/lib/roles";
@@ -59,7 +61,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
   const staff = owner ? plain(await User.find({ role: { $in: ["owner", "teacher", "admin"] } }).select("name").sort({ name: 1 }).lean()) : [];
 
   const storage = isStorageConfigured();
-  const [lessons, enrollments, assignments, submissions, announcements, resources, attendanceCounts] = plain(
+  const [lessons, enrollments, assignments, submissions, announcements, resources, attendanceCounts, shelf] = plain(
     await Promise.all([
       Lesson.find({ course: id }).sort({ startsAt: 1 }).lean(),
       Enrollment.find({ course: id }).populate("student", "name email phone level").sort({ status: 1, createdAt: -1 }).lean(),
@@ -68,6 +70,8 @@ export default async function AdminCoursePage({ params, searchParams }) {
       Announcement.find({ course: id }).sort({ pinned: -1, createdAt: -1 }).lean(),
       Resource.find({ course: id }).sort({ createdAt: -1 }).lean(),
       Attendance.aggregate([{ $match: { course: courseDoc._id } }, { $group: { _id: "$lesson", n: { $sum: 1 } } }]),
+      // What the level shares, from the folder on the classroom server. Counted only.
+      materialIndex().then((index) => (index.ok ? shelfFor(index, courseDoc.level, { links: false }) : [])),
     ]),
   );
   const active = enrollments.filter((e) => e.status === "active");
@@ -163,6 +167,31 @@ export default async function AdminCoursePage({ params, searchParams }) {
       )}
 
       {tab === "library" && (
+        <>
+          {/* What the whole level shares. Only summarised here: it lives in one
+              place, so a file fixed there is fixed for every course at once. */}
+          {shelf.length > 0 && (
+            <Panel
+              className="mb-5"
+              title={<span className="inline-flex items-center gap-2"><Library className="size-4" /> {t("library.fromLevel", { level: course.level })}</span>}
+              action={
+                <Link href={`/admin/library?level=${course.level}`} className="text-[11.5px] font-semibold text-navy-700 hover:underline">
+                  {t("library.manageShelf", { level: course.level })}
+                </Link>
+              }
+              bodyClassName="divide-y divide-line"
+            >
+              {shelf.map((s) => (
+                <div key={s.folder || "general"} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                  <span className="font-medium text-ink">{s.title || t("library.general")}</span>
+                  <span className="text-xs text-muted">
+                    {t("library.fileCount", { n: s.files.length })} · <span dir="ltr">{formatBytes(s.bytes)}</span>
+                  </span>
+                </div>
+              ))}
+            </Panel>
+          )}
+
         <Panel
           title={<span className="inline-flex items-center gap-2"><Library className="size-4" /> {t("library.title")}</span>}
           action={
@@ -194,6 +223,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
             </div>
           )) : <EmptyState icon={<Library className="size-5" />} title={t("library.empty")} text={t("library.emptyAdmin")} />}
         </Panel>
+        </>
       )}
 
       {tab === "students" && (
@@ -211,7 +241,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
                       </td>
                       <td><StatusBadge status={e.status} label={t(`status.${e.status}`)} /></td>
                       {money && <td><StatusBadge status={e.paymentStatus} label={t(`payment.${e.paymentStatus}`)} /></td>}
-                      {decide && <td><EnrollmentActions e={{ ...e, course: { title: course.title, currency: course.currency } }} t={t} compact /></td>}
+                      {decide && <td><EnrollmentActions e={e} t={t} compact /></td>}
                     </tr>
                   ))}
                 </tbody>

@@ -89,6 +89,65 @@ curl -s -H "Authorization: Bearer TOKEN" https://lk.your-domain.com/usage.json |
 `vnstat` counts from the moment it is installed, so the first month is partial — the page says
 since when it has been counting.
 
+## Part 5 — Course material (PDFs, audio, video)
+
+The academy's own material — the A1 listening, worksheets, exam papers — lives in a folder on
+this same server and is played and opened inside the platform like any other file. Students never
+see an address; behind each play button is a link that only works for a few hours and only for
+that one file, so nothing leaks if a link is pasted somewhere.
+
+**Turn it on (once, outside class time — Caddy restarts for a few seconds):**
+
+```bash
+scp -i your-key.key -r deploy/video-server ubuntu@SERVER_IP:~/
+ssh -i your-key.key ubuntu@SERVER_IP
+sudo bash ~/video-server/material-setup.sh
+```
+
+It prints two values. Put them in **Vercel → Settings → Environment Variables** (and in
+`.env.local` on your computer), then redeploy:
+
+```
+MATERIAL_URL=https://lk.your-domain.com
+MATERIAL_SECRET=…
+```
+
+**Putting material in.** The folder is the library: a folder inside a level is a section, a file is
+an item, and the names are what students read.
+
+```
+/srv/ddd-material/
+  A1/
+    Hören/
+      01 - Lektion 3 - Im Supermarkt.mp3
+      02 - Lektion 4 - Beim Arzt.mp3
+    Arbeitsblätter/
+      01 - Lektion 3.pdf
+    Grammatik/
+      Artikel-Übersicht.pdf
+  A2/ …
+```
+
+- A number in front (`01 - `) sets the order and is not shown.
+- A file directly inside `A1/` (not in a section) appears under *General*.
+- Every course at that level shows the same files — copy them once.
+
+From your computer (PowerShell, in the folder that holds your `A1` folder):
+
+```powershell
+scp -i your-key.key -r .\A1 ubuntu@SERVER_IP:/srv/ddd-material/
+```
+
+The platform notices new files within a minute. Renaming or deleting a file on the server changes
+or removes it in the platform the same way. Bilal can also add single files from
+**Administration → Library**; they land in the same folders.
+
+**How much room is there?** `df -h /` on the server. The free tier's disk is around 45 GB; all five
+levels of material are a couple of gigabytes.
+
+**Back it up.** The server is now where the material lives. Keep your original folders on your
+computer (or copy them to Drive) — they are the backup.
+
 ---
 
 ## Keeping it healthy
@@ -96,6 +155,7 @@ since when it has been counting.
 - **Updates (about once a month):** `cd ~/video-server && sudo docker compose pull && sudo docker compose up -d`
 - **Is it running?** `sudo docker compose ps` · **Logs:** `sudo docker compose logs -f livekit`
 - **Restart:** `sudo docker compose restart`
+- **Material service:** `sudo systemctl status ddd-material` · **Logs:** `sudo journalctl -u ddd-material -n 50`
 - **Keys:** stored in `~/video-server/.env`. Keep that file private; if it leaks, delete it, run the
   script again to create new keys, and update the three values in Vercel.
 - **Traffic report:** `systemctl status ddd-usage.timer` · run it now with `sudo /usr/local/bin/ddd-usage.py`

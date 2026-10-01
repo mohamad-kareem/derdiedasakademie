@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { hasCourseAccess } from "@/lib/enrollment-access";
-import { ArrowLeft, Video, CalendarDays, Clock, Award, ClipboardList, Megaphone, Pin, History, Library, BookA, ExternalLink } from "lucide-react";
+import { notFound } from "next/navigation";
+import { ArrowLeft, Video, CalendarDays, Clock, Award, ClipboardList, Megaphone, Pin, History, Library, BookA, ExternalLink, ChevronDown } from "lucide-react";
 import { Panel, EmptyState } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import LessonItem from "@/components/portal/LessonItem";
 import AssignmentRow from "@/components/portal/AssignmentRow";
 import AttachmentList from "@/components/files/AttachmentList";
+import ShelfRefresher from "@/components/files/ShelfRefresher";
 import { requireStudent } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { isId } from "@/lib/validate";
@@ -20,6 +20,7 @@ import VocabItem from "@/models/VocabItem";
 import "@/models/Course";
 import { getMyAssignments, getAnnouncements, lessonState } from "@/lib/student-data";
 import { isStorageConfigured } from "@/lib/storage";
+import { materialIndex, shelfFor } from "@/lib/material";
 import { RESOURCE_CATEGORIES } from "@/lib/constants";
 import { formatDate, plain } from "@/lib/utils";
 
@@ -32,14 +33,16 @@ export default async function CourseRoomPage({ params }) {
 
   const enrollment = plain(await Enrollment.findOne({ student: user.id, course: id, status: { $in: ["active", "completed"] } }).populate("course").lean());
   if (!enrollment?.course) notFound();
-  if (!hasCourseAccess(enrollment)) redirect("/dashboard/courses");
   const course = enrollment.course;
 
-  const [lessonsRaw, assignments, announcements, resources, attendance, vocabCount] = await Promise.all([
+  const [lessonsRaw, assignments, announcements, resources, shelf, attendance, vocabCount] = await Promise.all([
     Lesson.find({ course: id }).sort({ startsAt: 1 }).lean(),
     getMyAssignments(user.id, [course._id], locale),
     getAnnouncements([course._id], 20).then((list) => list.filter((a) => a.course)),
     Resource.find({ course: id, visible: true }).sort({ createdAt: -1 }).lean(),
+    // The academy's own material for this level, read from the folder on the
+    // classroom server. Every course at the level sees the same files.
+    materialIndex().then((index) => (index.ok ? shelfFor(index, course.level) : [])),
     Attendance.find({ course: id, user: user.id }).lean(),
     VocabItem.countDocuments({ course: id }),
   ]);
@@ -50,11 +53,14 @@ export default async function CourseRoomPage({ params }) {
   const progress = lessons.length ? Math.round((past.length / lessons.length) * 100) : 0;
   const isActive = enrollment.status === "active";
   const storage = isStorageConfigured();
-  const library = RESOURCE_CATEGORIES.map((c) => ({ c, items: plain(resources).filter((r) => r.category === c) })).filter((g) => g.items.length);
+  // What Bilal put up for this group alone, by kind.
+  const own = plain(resources);
+  const library = RESOURCE_CATEGORIES.map((c) => ({ c, items: own.filter((r) => r.category === c) })).filter((g) => g.items.length);
   const next = upcoming[0];
 
   return (
     <>
+      {shelf.length > 0 && <ShelfRefresher />}
       <Link href="/dashboard/courses" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-navy-900">
         <ArrowLeft className="size-4 rtl:rotate-180" /> {t("student.nav.courses")}
       </Link>
@@ -115,15 +121,32 @@ export default async function CourseRoomPage({ params }) {
           <Panel title={t("student.room.assignments")} bodyClassName="divide-y divide-line">
             {assignments.length ? assignments.map((a) => <AssignmentRow key={a._id} assignment={a} showCourse={false} storage={storage} />) : <EmptyState icon={<ClipboardList className="size-5" />} title={t("student.room.noAssignments")} />}
           </Panel>
-          {library.length > 0 && (
+          {(shelf.length > 0 || library.length > 0) && (
             <Panel title={<span className="inline-flex items-center gap-2"><Library className="size-4" /> {t("library.title")}</span>} bodyClassName="divide-y divide-line">
+              {/* The level's material first — it is the course book — then
+                  anything made for this group. One library to the student. */}
+              {/* A section of a few files is open; a long one — a whole CD of
+                  listening tracks — starts folded, so the page stays a page. */}
+              {shelf.map((s) => (
+                <details key={`shelf-${s.folder}`} open={s.files.length <= 6} className="group px-4 py-4">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-gold-600 [&::-webkit-details-marker]:hidden">
+                    <ChevronDown className="size-3.5 -rotate-90 transition group-open:rotate-0 rtl:rotate-90 rtl:group-open:rotate-0" />
+                    {s.title || t("library.general")}
+                    <span className="badge border border-line bg-cream normal-case tracking-normal text-muted">{course.level}</span>
+                    <span className="ms-auto text-[11px] font-normal normal-case tracking-normal text-muted">{t("library.fileCount", { n: s.files.length })}</span>
+                  </summary>
+                  <AttachmentList files={s.files} t={t} className="mt-3" />
+                </details>
+              ))}
               {library.map(({ c, items }) => (
                 <div key={c} className="px-4 py-4">
                   <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gold-600">{t(`library.categories.${c}`)}</p>
                   <div className="space-y-4">
                     {items.map((r) => (
                       <div key={r._id}>
-                        <p className="text-sm font-semibold text-ink">{r.title}</p>
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+                          {r.title}
+                        </p>
                         {r.description && <p className="mt-0.5 text-xs text-muted">{r.description}</p>}
                         {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="link mt-1 inline-flex items-center gap-1 text-xs"><ExternalLink className="size-3" /> {t("library.openLink")}</a>}
                         <AttachmentList files={r.attachments} t={t} className="mt-2" />

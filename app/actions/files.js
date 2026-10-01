@@ -3,7 +3,7 @@
 import connectDB from "@/lib/mongodb";
 import { actionUser } from "@/lib/auth";
 import { canUseCourse } from "@/lib/access";
-import { isStaff, isOwner, teaches } from "@/lib/roles";
+import { isStaff, teaches } from "@/lib/roles";
 import Course from "@/models/Course";
 import { isId } from "@/lib/validate";
 import { allowedType, buildKey, isStorageConfigured, MAX_UPLOAD_MB, UPLOAD_CHUNK_BYTES } from "@/lib/storage";
@@ -29,15 +29,6 @@ export async function createUpload({ scope, courseId, studentId, name, size }) {
   if (!Number.isFinite(size) || size <= 0 || size > MAX_UPLOAD_MB * 1024 * 1024) return { ok: false, error: "files.tooLarge" };
 
   await connectDB();
-
-  if (scope === "whish-qr") {
-    if (!isOwner(user)) return { ok: false, error: "errors.forbidden" };
-    if (!["image/png", "image/jpeg", "image/webp"].includes(type)) return { ok: false, error: "profile.photoType" };
-    if (size > AVATAR_MAX_BYTES) return { ok: false, error: "profile.photoTooLarge" };
-    const key = buildKey(`payments/${user.id}`, name);
-    const pending = await PendingUpload.create({ key, user: user.id, name, type, size });
-    return { ok: true, key, type, uploadId: String(pending._id), chunkSize: UPLOAD_CHUNK_BYTES };
-  }
 
   // A portrait belongs to the person, not to a course, so it is settled first
   // and on its own terms: pictures only, and a small allowance.

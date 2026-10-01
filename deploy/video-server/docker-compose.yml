@@ -19,6 +19,8 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - /srv/ddd-usage:/srv/ddd-usage:ro
+      # Course material. Caddy only reads it; ddd-material.py writes uploads.
+      - /srv/ddd-material:/srv/www/m:ro
       - caddy_data:/data
       - caddy_config:/config
 

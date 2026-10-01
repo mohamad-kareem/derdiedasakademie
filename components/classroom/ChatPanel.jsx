@@ -67,7 +67,7 @@ export default function ChatPanel({ messages, me, courseId, storage, onSend }) {
                       <FileIcon file={m.attachment} className="size-8" />
                       <span className="min-w-0">
                         <span className="block truncate text-xs font-medium" dir="ltr">{m.attachment.name}</span>
-                        <span className="block text-[10px] opacity-70">{formatBytes(m.attachment.size)}</span>
+                        <span className="block text-[10px] opacity-70" dir="ltr">{formatBytes(m.attachment.size)}</span>
                       </span>
                     </a>
                   )

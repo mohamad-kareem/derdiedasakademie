@@ -87,7 +87,7 @@ export default function FileUploader({ name = "attachments", scope, courseId, st
                 {f.status === "uploading" && (
                   <div className="mt-1 h-1 overflow-hidden bg-canvas"><div className="h-full bg-navy-700 transition-all" style={{ width: `${f.progress}%` }} /></div>
                 )}
-                {f.status === "done" && <p className="text-[11px] text-muted">{formatBytes(f.size)}</p>}
+                {f.status === "done" && <p className="text-[11px] text-muted"><span dir="ltr">{formatBytes(f.size)}</span></p>}
                 {f.status === "error" && <p className="flex items-center gap-1 text-[11px] text-red-600"><AlertCircle className="size-3" /> {t(f.error)}</p>}
               </div>
               {f.status === "uploading" ? (

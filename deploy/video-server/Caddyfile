@@ -14,6 +14,34 @@
 		}
 	}
 
+	# Course material: the files in /srv/ddd-material on this machine (mounted
+	# at /srv/www/m), sent only when the address carries an unexpired signature
+	# from the platform. ddd-material.py checks it; Caddy does the sending, with
+	# byte ranges so audio can be skipped through.
+	handle /m/* {
+		forward_auth 127.0.0.1:7890 {
+			uri /verify
+		}
+		root * /srv/www
+		@download query dl=1
+		header @download Content-Disposition attachment
+		header X-Content-Type-Options nosniff
+		file_server
+	}
+
+	# The list of files, uploads from the admin page, and deletions — all signed.
+	handle /m-api/* {
+		request_body {
+			max_size 600MB
+		}
+		reverse_proxy 127.0.0.1:7890 {
+			transport http {
+				read_timeout 10m
+				write_timeout 10m
+			}
+		}
+	}
+
 	handle {
 		reverse_proxy 127.0.0.1:7880
 	}
