@@ -20,13 +20,15 @@ export async function loginAction(formData) {
   await connectDB();
   const user = await User.findOne({ email }).select("+password");
   if (!user || !(await bcrypt.compare(password, user.password))) return fail("errors.invalidCredentials");
-  if (!user.isActive) return fail("errors.accountDisabled");
+  if (!user.isActive && !(user.role === "student" && user.isBlocked)) return fail("errors.accountDisabled");
 
   // An address listed in ADMIN_EMAILS is the owner, whatever the record says.
   if (user.role !== "owner" && isAdminEmail(email)) user.role = "owner";
   user.lastLoginAt = new Date();
   await user.save();
   await createSession(user);
+
+  if (user.role === "student" && user.isBlocked) redirect("/account-blocked");
 
   const fallback = homeFor(user);
   const next = safeNext(str(formData, "next"), fallback);

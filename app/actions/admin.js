@@ -32,6 +32,7 @@ import { isEmailConfigured } from "@/lib/email";
 import { staffInvited, enrolmentDecided, paymentReminder, testLetter } from "@/lib/letters";
 import { sortMeetings } from "@/lib/schedule";
 import { can, teaches, isOwner, ROLES } from "@/lib/roles";
+import { paymentUpdate, paymentBalance } from "@/lib/installments";
 
 /**
  * Every action starts here. `capability` says what kind of thing is being
@@ -478,9 +479,22 @@ export async function setEnrollmentStatus(enrollmentId, status) {
 export async function setPaymentStatus(enrollmentId, paymentStatus) {
   if (!(await guard("finance.manage")) || !isId(enrollmentId)) return fail("errors.forbidden");
   if (!["paid", "unpaid"].includes(paymentStatus)) return fail("errors.generic");
-  await Enrollment.updateOne({ _id: enrollmentId }, { paymentStatus });
+  const enrollment = await Enrollment.findById(enrollmentId);
+  if (!enrollment) return fail("errors.notFound");
+  await Enrollment.updateOne({ _id: enrollmentId }, { paymentStatus, paidAmount: paymentStatus === "paid" ? enrollment.amount : 0, paymentDueDate: "" });
   refresh();
   return done();
+}
+
+export async function recordEnrollmentPayment(enrollmentId, formData) {
+  if (!(await guard("finance.manage")) || !isId(enrollmentId)) return fail("errors.forbidden");
+  const enrollment = await Enrollment.findById(enrollmentId);
+  if (!enrollment || !["active", "completed"].includes(enrollment.status)) return fail("errors.forbidden");
+  const update = paymentUpdate(enrollment.amount, str(formData, "paymentMode", 20), str(formData, "paidAmount", 30), str(formData, "paymentDueDate", 20));
+  if (update.error) return fail(update.error);
+  await Enrollment.updateOne({ _id: enrollmentId }, update);
+  refresh();
+  return done("installments.saved");
 }
 
 export async function addStudentToCourse(courseId, formData) {
@@ -503,6 +517,8 @@ export async function addStudentToCourse(courseId, formData) {
       approvedAt: new Date(),
       amount: course.price,
       paymentStatus: formData.get("paid") === "on" ? "paid" : "unpaid",
+      paidAmount: formData.get("paid") === "on" ? course.price : 0,
+      paymentDueDate: "",
     },
     { upsert: true, setDefaultsOnInsert: true },
   );
@@ -694,7 +710,7 @@ export async function sendPaymentReminder(enrollmentId) {
   const sent = await paymentReminder(
     enrollment.student,
     enrollment.course,
-    enrollment.amount || 0,
+    paymentBalance(enrollment).remaining,
     enrollment.course.currency || "EUR",
   );
   return sent ? done("admin.enroll.reminderSent") : fail("errors.emailFailed");

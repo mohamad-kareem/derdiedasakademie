@@ -69,7 +69,7 @@ export default async function StudentsPage({ searchParams }) {
                     <td><LevelBadge level={s.level} /></td>
                     <td>{active[s._id] || 0}</td>
                     <td className="whitespace-nowrap text-muted">{formatDate(s.createdAt, locale)}</td>
-                    <td><StatusBadge status={s.isActive ? "active" : "rejected"} label={s.isActive ? t("admin.students.enabled") : t("admin.students.disabled")} /></td>
+                    <td><StatusBadge status={s.isBlocked || !s.isActive ? "rejected" : "active"} label={s.isBlocked ? t("blocking.blocked") : s.isActive ? t("admin.students.enabled") : t("admin.students.disabled")} /></td>
                   </tr>
                 ))}
               </tbody>

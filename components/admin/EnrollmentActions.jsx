@@ -1,5 +1,6 @@
 import { Check, X, BadgeCheck, CircleDollarSign, RotateCcw, Award, Send } from "lucide-react";
 import ActionButton from "@/components/ui/ActionButton";
+import RecordPayment from "@/components/admin/RecordPayment";
 import { setEnrollmentStatus, setPaymentStatus, sendPaymentReminder } from "@/app/actions/admin";
 
 export default function EnrollmentActions({ e, t, compact = false, canRemind = false }) {
@@ -22,9 +23,7 @@ export default function EnrollmentActions({ e, t, compact = false, canRemind = f
             <CircleDollarSign className="size-3.5 text-emerald-600" /> {!compact && t("admin.enroll.markUnpaid")}
           </ActionButton>
         ) : (
-          <ActionButton action={setPaymentStatus.bind(null, id, "paid")} title={t("admin.enroll.markPaid")}>
-            <CircleDollarSign className="size-3.5" /> {!compact && t("admin.enroll.markPaid")}
-          </ActionButton>
+          <RecordPayment enrollment={e} compact={compact} />
         )
       )}
       {/* A money letter goes out one at a time, and only where there is money

@@ -11,6 +11,8 @@ import { getI18n } from "@/lib/i18n/server";
 import { getMyEnrollments, accessibleCourseIds, getMyAssignments, getUpcomingLessons, getAnnouncements } from "@/lib/student-data";
 import { formatDate } from "@/lib/utils";
 import { hasCourseAccess } from "@/lib/enrollment-access";
+import { schoolToday } from "@/lib/installments";
+import PaymentReminders from "@/components/portal/PaymentReminders";
 
 export default async function StudentOverview() {
   const user = await requireStudent();
@@ -39,6 +41,7 @@ export default async function StudentOverview() {
         actions={<Link href="/courses" className="btn btn-primary">{t("student.nav.browse")}</Link>}
       />
 
+      <PaymentReminders enrollments={enrollments} today={schoolToday()} />
       {pending.length > 0 && (
         <div className="mb-6 flex items-start gap-3 rounded-[3px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <Hourglass className="mt-0.5 size-4 shrink-0" />

@@ -25,7 +25,7 @@ export async function requestEnrollment(courseId, formData) {
   if (!user) return fail("errors.loginRequired");
   if (!isId(courseId)) return fail("errors.notFound");
   const paymentMethod = str(formData, "paymentMethod", 30);
-  if (paymentMethod !== "whish") return fail("whish.invalidMethod");
+  if (!["whish", "bank"].includes(paymentMethod)) return fail("whish.invalidMethod");
 
   await connectDB();
   const course = await Course.findOne({ _id: courseId, status: "published" }).lean();
@@ -40,6 +40,8 @@ export async function requestEnrollment(courseId, formData) {
   const data = {
     status: "pending",
     paymentStatus: "unpaid",
+    paidAmount: 0,
+    paymentDueDate: "",
     paymentMethod,
     amount: course.price,
     message: str(formData, "message", 1000),

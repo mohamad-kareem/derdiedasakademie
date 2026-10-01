@@ -1,7 +1,10 @@
 import Link from "next/link";
-import WhishTransfer from "@/components/site/WhishTransfer";
+import StudentPayment from "@/components/site/StudentPayment";
+import { getBankAccount } from "@/lib/bank";
 import { getWhishAccount } from "@/lib/whish";
 import { hasCourseAccess } from "@/lib/enrollment-access";
+import { paymentBalance, schoolToday } from "@/lib/installments";
+import PaymentReminders from "@/components/portal/PaymentReminders";
 import { BookOpen, CalendarDays, Clock, ArrowRight, Award } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
@@ -18,10 +21,12 @@ export default async function MyCoursesPage() {
   const { t, locale } = await getI18n();
   const enrollments = await getMyEnrollments(user.id);
   const whishAccount = await getWhishAccount();
+  const bankAccount = await getBankAccount();
 
   return (
     <>
       <PageHeader title={t("student.nav.courses")} description={t("student.courses.subtitle")} actions={<Link href="/courses" className="btn btn-primary">{t("student.nav.browse")}</Link>} />
+      <PaymentReminders enrollments={enrollments} today={schoolToday()} />
       {enrollments.length === 0 ? (
         <div className="card">
           <EmptyState icon={<BookOpen className="size-5" />} title={t("student.overview.noCoursesTitle")} text={t("student.overview.noCoursesText")} action={<Link href="/courses" className="btn btn-primary">{t("student.nav.browse")}</Link>} />
@@ -52,14 +57,13 @@ export default async function MyCoursesPage() {
                 <p className="mt-3 text-sm text-ink/75">{t(`enroll.state.${e.status}`)}</p>
                 {approved && !open && <p className="mt-2 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{t("whish.accessLocked")}</p>}
                 {e.amount > 0 && !["rejected", "cancelled"].includes(e.status) && (
-                  <div className="mt-3 rounded border border-line bg-canvas p-3 text-sm">
-                    <p className="font-medium">{t("whish.method")}: Whish Money</p>
-                    {e.paymentStatus === "unpaid" && approved && <WhishTransfer account={whishAccount} />}
-                    {e.paymentStatus === "unpaid" && !approved && <p className="mt-1 text-xs text-muted">{t("whish.approvalFirst")}</p>}
-                  </div>
+                  <StudentPayment enrollmentId={e._id} method={e.paymentMethod} approved={approved} unpaid={e.paymentStatus !== "paid"} amount={paymentBalance(e).remaining} currency={c.currency} whishAccount={whishAccount} bankAccount={bankAccount} />
                 )}
-                {e.status !== "rejected" && e.status !== "cancelled" && e.paymentStatus === "unpaid" && e.amount > 0 && (
-                  <p className="mt-2 text-xs text-muted">{t("student.courses.amountDue", { amount: formatMoney(e.amount, c.currency, locale) })}</p>
+                {e.status !== "rejected" && e.status !== "cancelled" && e.paymentStatus !== "paid" && e.amount > 0 && (
+                  <div className="mt-2 text-xs text-muted">
+                    <p>{t("student.courses.amountDue", { amount: formatMoney(paymentBalance(e).remaining, c.currency, locale) })}</p>
+                    {e.paymentStatus === "partial" && <><p>{t("installments.received")}: {formatMoney(paymentBalance(e).received, c.currency, locale)}</p><p>{t("installments.dueDate")}: {e.paymentDueDate}</p></>}
+                  </div>
                 )}
                 <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4">
                   {open && <Link href={`/dashboard/courses/${c._id}`} className="btn btn-primary btn-sm">{t("student.courses.enter")} <ArrowRight className="size-3.5 rtl:rotate-180" /></Link>}

@@ -36,6 +36,7 @@ const statusStyles = {
   cancelled: "border-line-strong bg-cream text-muted",
   paid: "border-emerald-700/25 bg-emerald-50 text-emerald-800",
   unpaid: "border-red-700/25 bg-red-50 text-red-800",
+  partial: "border-amber-700/25 bg-amber-50 text-amber-900",
   draft: "border-line-strong bg-cream text-muted",
   published: "border-emerald-700/25 bg-emerald-50 text-emerald-800",
   archived: "border-line-strong bg-cream text-muted",

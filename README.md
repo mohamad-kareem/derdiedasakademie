@@ -17,9 +17,39 @@ classrooms and certificates require confirmed payment. Approved enrollments with
 an amount of zero remain accessible without payment. Marking an enrollment unpaid
 revokes access again. Payment instructions remain visible for approved unpaid students.
 
+### Installments and student blocking
+
+The owner's payment button opens a form for full payment or partial payment.
+For a partial payment, enter the **total received so far** (including earlier
+installments); the remaining balance is calculated automatically. A next due date
+is required. Confirmed partial payments unlock approved courses. Recording full
+payment clears the due date and reminder. Students and owners see the balance and
+due date, with dashboard reminders starting three calendar days before the date
+(Europe/Berlin) and remaining visible if overdue. Open dashboards refresh every
+minute. These are website reminders; no email scheduler is required.
+
+Admin → Students → student page contains an owner-only block/unblock form.
+A blocking reason is required and shown on the student's blocked-access page.
+Blocked students can sign in to see the reason, but cannot access courses, files,
+classrooms or submit actions. Existing classroom sessions check access each minute
+and disconnect when access is revoked. Unblocking restores the normal enrollment
+and payment access rules without changing payment records.
+
 This is a manual transfer workflow. Automatic invoice creation and payment
 confirmation require official Whish merchant credentials and documentation.
 The payment method is stored separately so additional methods can be added later.
+
+### Bank transfers
+
+The owner adds the receiving bank details under Admin → My account: account holder,
+bank name, IBAN or account number, optional SWIFT/BIC and a three-letter account
+currency. Clearing all fields removes these details. Formatting validation does not
+verify that the bank account exists. Students choose Bank transfer when enrolling,
+or change and save their choice in My courses while payment is unpaid. Approved
+students see the receiving account and the exact enrollment amount and course
+currency. A currency mismatch asks them to contact the academy before transferring.
+The owner sees the chosen method in Admin → Enrollments and must verify receipt
+before marking the enrollment paid. The same course access rules apply to both methods.
 
 ```bash
 npm install

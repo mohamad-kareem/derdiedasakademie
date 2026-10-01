@@ -18,6 +18,8 @@ import Submission from "@/models/Submission";
 import Inquiry from "@/models/Inquiry";
 import "@/models/Assignment";
 import { formatDate, formatMoney, nowMs, plain } from "@/lib/utils";
+import PaymentReminders from "@/components/portal/PaymentReminders";
+import { schoolToday } from "@/lib/installments";
 
 /**
  * The overview.
@@ -51,8 +53,8 @@ export default async function AdminOverview() {
     mineIds.length ? Lesson.find({ course: { $in: mineIds } }).select("course title startsAt durationMin").sort({ startsAt: 1 }).lean() : [],
     mineIds.length ? Enrollment.find({ course: { $in: mineIds } }).select("course status").lean() : [],
     owner ? User.countDocuments({ role: "student" }) : Enrollment.distinct("student", { ...courseScope, status: "active" }).then((l) => l.length),
-    money ? Enrollment.aggregate([{ $match: { paymentStatus: "paid" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]) : [],
-    money ? Enrollment.aggregate([{ $match: { paymentStatus: "unpaid", status: { $in: ["active", "completed"] } } }, { $group: { _id: null, total: { $sum: "$amount" } } }]) : [],
+    money ? Enrollment.aggregate([{ $match: { paymentStatus: { $in: ["paid", "partial"] } } }, { $group: { _id: null, total: { $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, "$amount", { $ifNull: ["$paidAmount", 0] }] } } } }]) : [],
+    money ? Enrollment.aggregate([{ $match: { paymentStatus: { $in: ["unpaid", "partial"] }, status: { $in: ["active", "completed"] } } }, { $group: { _id: null, total: { $sum: { $subtract: ["$amount", { $ifNull: ["$paidAmount", 0] }] } } } }]) : [],
     Submission.countDocuments({ ...courseScope, status: "submitted" }),
     can(user, "inquiries.manage") ? Inquiry.countDocuments({ status: "new" }) : 0,
     decide
@@ -115,6 +117,7 @@ export default async function AdminOverview() {
   const currency = mine[0]?.currency || "EUR";
   const pendingCount = enrolments.filter((e) => e.status === "pending").length;
   const activeCount = enrolments.filter((e) => e.status === "active").length;
+  const installmentEnrollments = owner ? plain(await Enrollment.find({ paymentStatus: "partial", status: { $in: ["active", "completed"] } }).populate("student", "name").populate("course", "title currency").sort({ paymentDueDate: 1 }).lean()) : [];
 
   return (
     <>
@@ -136,6 +139,7 @@ export default async function AdminOverview() {
       >
         <Breadcrumb trail={[t(owner ? "admin.portal" : "admin.teacherPortal"), t("admin.nav.overview")]} />
       </PageHeader>
+      {owner && <PaymentReminders enrollments={installmentEnrollments} owner today={schoolToday()} />}
 
       <StatRow
         items={[

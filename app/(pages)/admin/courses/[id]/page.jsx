@@ -211,7 +211,7 @@ export default async function AdminCoursePage({ params, searchParams }) {
                       </td>
                       <td><StatusBadge status={e.status} label={t(`status.${e.status}`)} /></td>
                       {money && <td><StatusBadge status={e.paymentStatus} label={t(`payment.${e.paymentStatus}`)} /></td>}
-                      {decide && <td><EnrollmentActions e={e} t={t} compact /></td>}
+                      {decide && <td><EnrollmentActions e={{ ...e, course: { title: course.title, currency: course.currency } }} t={t} compact /></td>}
                     </tr>
                   ))}
                 </tbody>

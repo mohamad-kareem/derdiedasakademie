@@ -5,10 +5,10 @@ import { useI18n } from "@/components/I18nProvider";
 import { updateStudent } from "@/app/actions/admin";
 import { LEVELS } from "@/lib/constants";
 
-export default function StudentEditForm({ student }) {
+export default function StudentEditForm({ student, onSuccess }) {
   const { t } = useI18n();
   return (
-    <ActionForm action={updateStudent.bind(null, student._id)} className="space-y-3">
+    <ActionForm action={updateStudent.bind(null, student._id)} onSuccess={onSuccess} className="space-y-3">
       <label className="block"><span className="label">{t("form.fullName")}</span><input name="name" defaultValue={student.name} className="input" required /></label>
       <label className="block"><span className="label">{t("form.phone")}</span><input name="phone" defaultValue={student.phone} className="input" dir="ltr" /></label>
       <label className="block">

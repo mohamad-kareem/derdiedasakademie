@@ -1,6 +1,7 @@
 import { PageHeader, Breadcrumb } from "@/components/ui/Blocks";
 import ProfileForms from "@/components/portal/ProfileForms";
 import WhishAccountForm from "@/components/portal/WhishAccountForm";
+import BankAccountForm from "@/components/portal/BankAccountForm";
 import { requireStaff } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { portalKey, isOwner } from "@/lib/roles";
@@ -16,6 +17,7 @@ export default async function StaffAccountPage() {
       </PageHeader>
       <ProfileForms user={user} />
       {isOwner(user) && <WhishAccountForm user={user} />}
+      {isOwner(user) && <BankAccountForm user={user} />}
     </>
   );
 }

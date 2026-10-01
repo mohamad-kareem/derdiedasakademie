@@ -3,6 +3,8 @@ import { Layers } from "lucide-react";
 import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
+import { paymentBalance, schoolToday } from "@/lib/installments";
+import PaymentReminders from "@/components/portal/PaymentReminders";
 import { isEmailConfigured } from "@/lib/email";
 import { requireOwner } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
@@ -22,7 +24,7 @@ export default async function EnrollmentsPage({ searchParams }) {
   const postRoom = isEmailConfigured();
   await connectDB();
 
-  const query = status === "all" ? {} : status === "unpaid" ? { paymentStatus: "unpaid", status: { $in: ["active", "completed", "pending"] } } : { status };
+  const query = status === "all" ? {} : status === "unpaid" ? { paymentStatus: { $in: ["unpaid", "partial"] }, status: { $in: ["active", "completed", "pending"] } } : { status };
   const list = plain(await Enrollment.find(query).populate("student", "name email phone level").populate("course", "title level currency").sort({ createdAt: -1 }).limit(300).lean()).filter((e) => e.student && e.course);
 
   return (
@@ -30,6 +32,7 @@ export default async function EnrollmentsPage({ searchParams }) {
       <PageHeader title={t("admin.nav.enrollments")} description={t("admin.enroll.subtitle")} >
         <Breadcrumb trail={[t("admin.portal"), t("admin.nav.enrollments")]} />
       </PageHeader>
+      <PaymentReminders enrollments={list} owner today={schoolToday()} />
       <div className="mb-4 flex flex-wrap gap-1 rounded-[3px] border border-line bg-white p-1 sm:inline-flex">
         {STATUSES.map((s) => (
           <Link key={s} href={`/admin/enrollments?status=${s}`} className={cn("rounded-[3px] px-3 py-1.5 text-xs font-medium", status === s ? "bg-navy-900 text-white" : "text-muted hover:bg-canvas")}>
@@ -59,7 +62,9 @@ export default async function EnrollmentsPage({ searchParams }) {
                     <td className="whitespace-nowrap">
                       <StatusBadge status={e.paymentStatus} label={t(`payment.${e.paymentStatus}`)} />
                       <p className="mt-0.5 text-xs text-muted">{formatMoney(e.amount, e.course.currency, locale)}</p>
+                      {e.paymentStatus === "partial" && <div className="mt-1 whitespace-normal text-xs text-muted"><p>{t("installments.received")}: {formatMoney(paymentBalance(e).received, e.course.currency, locale)}</p><p>{t("installments.remaining")}: {formatMoney(paymentBalance(e).remaining, e.course.currency, locale)}</p><p>{t("installments.dueDate")}: {e.paymentDueDate}</p></div>}
                       {e.paymentMethod === "whish" && <p className="mt-1 text-xs text-muted">Whish Money</p>}
+                      {e.paymentMethod === "bank" && <p className="mt-1 text-xs text-muted">{t("bank.title")}</p>}
                     </td>
                     <td><EnrollmentActions e={e} t={t} compact canRemind={postRoom} /></td>
                   </tr>

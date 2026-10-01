@@ -260,14 +260,27 @@ export default function Room({ me, isTeacher, lesson, course, docs: initialDocs,
 
   useEffect(() => {
     if (connection !== ConnectionState.Connected) return;
-    heartbeat(lesson._id);
-    const id = setInterval(() => heartbeat(lesson._id), 60000);
+    let stopped = false;
+    const checkAccess = async () => {
+      try {
+        const result = await heartbeat(lesson._id);
+        if (!stopped && result?.error === "errors.forbidden") {
+          await room.disconnect();
+          router.replace(backHref);
+        }
+      } catch {
+        // A network interruption does not establish that access was revoked.
+      }
+    };
+    checkAccess();
+    const id = setInterval(checkAccess, 60000);
     const timer = setTimeout(() => send("sync:req", {}), 800);
     return () => {
+      stopped = true;
       clearInterval(id);
       clearTimeout(timer);
     };
-  }, [connection, lesson._id, send]);
+  }, [connection, lesson._id, send, room, router, backHref]);
 
   useEffect(() => {
     const onDisconnected = (reason) => {
