@@ -1,8 +1,9 @@
 import { PageHeader, Breadcrumb } from "@/components/ui/Blocks";
 import ProfileForms from "@/components/portal/ProfileForms";
+import WhishAccountForm from "@/components/portal/WhishAccountForm";
 import { requireStaff } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
-import { portalKey } from "@/lib/roles";
+import { portalKey, isOwner } from "@/lib/roles";
 
 /** A staff member's own details and password — everyone who works here has one. */
 export default async function StaffAccountPage() {
@@ -14,6 +15,7 @@ export default async function StaffAccountPage() {
         <Breadcrumb trail={[t(portalKey(user)), t("admin.account.title")]} />
       </PageHeader>
       <ProfileForms user={user} />
+      {isOwner(user) && <WhishAccountForm user={user} />}
     </>
   );
 }

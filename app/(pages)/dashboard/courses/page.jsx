@@ -1,4 +1,6 @@
 import Link from "next/link";
+import WhishTransfer from "@/components/site/WhishTransfer";
+import { getWhishAccount } from "@/lib/whish";
 import { BookOpen, CalendarDays, Clock, ArrowRight, Award } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
@@ -14,6 +16,7 @@ export default async function MyCoursesPage() {
   const user = await requireStudent();
   const { t, locale } = await getI18n();
   const enrollments = await getMyEnrollments(user.id);
+  const whishAccount = await getWhishAccount();
 
   return (
     <>
@@ -45,13 +48,11 @@ export default async function MyCoursesPage() {
                   {scheduleText(c, t, locale) && <span className="inline-flex items-center gap-1.5"><Clock className="size-4" /> {scheduleText(c, t, locale)}</span>}
                 </div>
                 <p className="mt-3 text-sm text-ink/75">{t(`enroll.state.${e.status}`)}</p>
-                {e.paymentMethod === "whish" && e.amount > 0 && !["rejected", "cancelled"].includes(e.status) && (
+                {e.amount > 0 && !["rejected", "cancelled"].includes(e.status) && (
                   <div className="mt-3 rounded border border-line bg-canvas p-3 text-sm">
                     <p className="font-medium">{t("whish.method")}: Whish Money</p>
-                    {e.paymentStatus === "unpaid" && <p className="mt-1 text-xs text-muted">{t(e.status === "active" && e.whishPaymentUrl ? "whish.verifyNote" : "whish.waiting")}</p>}
-                    {e.status === "active" && e.paymentStatus === "unpaid" && e.whishPaymentUrl && (
-                      <a href={e.whishPaymentUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm mt-3">{t("whish.pay")}</a>
-                    )}
+                    {e.paymentStatus === "unpaid" && open && <WhishTransfer account={whishAccount} reference={e._id} />}
+                    {e.paymentStatus === "unpaid" && !open && <p className="mt-1 text-xs text-muted">{t("whish.approvalFirst")}</p>}
                   </div>
                 )}
                 {e.status !== "rejected" && e.status !== "cancelled" && e.paymentStatus === "unpaid" && e.amount > 0 && (

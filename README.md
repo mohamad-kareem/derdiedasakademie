@@ -6,14 +6,14 @@ Next.js 16 · React 19 · Tailwind CSS 4 · MongoDB (data + files) · LiveKit ·
 
 ### Whish Money payments
 
-Students select Whish Money when requesting enrollment. After approving a seat,
-open Admin → Enrollments → Whish payment link and paste the official Whish link
-created for that student's course amount and currency. The student can then pay
-from My courses. Only HTTPS links on whish.money or its subdomains are accepted.
-Clear the field to remove a link. Verify receipt in Whish before marking the
-enrollment paid; opening the link does not confirm payment.
+The owner sets the academy's receiving Whish number and uploads its official
+receiving QR in Admin → My account. QR uploads accept PNG, JPG or WebP up to 5 MB.
+Only the owner can change these details. Approved students with an unpaid amount
+can choose the number or QR in My courses and transfer the displayed course amount
+using Whish. Removing either field and saving removes that option for students.
+Verify receipt in Whish before marking the enrollment paid in Admin → Enrollments.
 
-This is a payment-link workflow. Automatic invoice creation and payment
+This is a manual transfer workflow. Automatic invoice creation and payment
 confirmation require official Whish merchant credentials and documentation.
 The payment method is stored separately so additional methods can be added later.
 

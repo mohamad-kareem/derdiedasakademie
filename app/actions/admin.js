@@ -483,31 +483,6 @@ export async function setPaymentStatus(enrollmentId, paymentStatus) {
   return done();
 }
 
-export async function setWhishPaymentLink(enrollmentId, formData) {
-  if (!(await guard("finance.manage")) || !isId(enrollmentId)) return fail("errors.forbidden");
-  const raw = str(formData, "whishPaymentUrl", 2000);
-  let whishPaymentUrl = "";
-  if (raw) {
-    try {
-      const url = new URL(raw);
-      if (url.protocol !== "https:" || url.username || url.password || url.port ||
-          !(url.hostname === "whish.money" || url.hostname.endsWith(".whish.money"))) {
-        return fail("whish.invalidLink");
-      }
-      whishPaymentUrl = url.href;
-    } catch {
-      return fail("whish.invalidLink");
-    }
-  }
-  const result = await Enrollment.updateOne(
-    { _id: enrollmentId, status: "active", paymentStatus: "unpaid", amount: { $gt: 0 } },
-    { paymentMethod: "whish", whishPaymentUrl },
-  );
-  if (!result.matchedCount) return fail("errors.generic");
-  refresh();
-  return done("whish.saved");
-}
-
 export async function addStudentToCourse(courseId, formData) {
   if (!(await guard("enrollments.decide")) || !isId(courseId)) return fail("errors.forbidden");
   const email = str(formData, "email", 200).toLowerCase();

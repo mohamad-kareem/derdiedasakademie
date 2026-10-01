@@ -41,7 +41,6 @@ export async function requestEnrollment(courseId, formData) {
     status: "pending",
     paymentStatus: "unpaid",
     paymentMethod,
-    whishPaymentUrl: "",
     amount: course.price,
     message: str(formData, "message", 1000),
   };

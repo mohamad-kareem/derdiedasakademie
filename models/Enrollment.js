@@ -11,7 +11,6 @@ const EnrollmentSchema = new mongoose.Schema(
     },
     paymentStatus: { type: String, enum: ["unpaid", "paid"], default: "unpaid" },
     paymentMethod: { type: String, enum: ["", "whish"], default: "" },
-    whishPaymentUrl: { type: String, default: "" },
     amount: { type: Number, default: 0 },
     message: { type: String, default: "" },
     adminNote: { type: String, default: "" },

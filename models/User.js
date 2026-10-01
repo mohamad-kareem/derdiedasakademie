@@ -9,6 +9,8 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: true, select: false },
     phone: { type: String, default: "", trim: true },
     avatarKey: { type: String, default: "" },
+    whishNumber: { type: String, default: "", trim: true, maxlength: 30 },
+    whishQrKey: { type: String, default: "" },
     country: { type: String, default: "", trim: true },
     level: { type: String, enum: [...LEVELS, "unknown"], default: "unknown" },
     // "admin" is the value the single-owner version wrote; it is read as "owner".
