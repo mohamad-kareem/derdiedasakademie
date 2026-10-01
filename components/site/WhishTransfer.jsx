@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useI18n } from "@/components/I18nProvider";
 
-export default function WhishTransfer({ account, reference }) {
+export default function WhishTransfer({ account }) {
   const { t } = useI18n();
   const [choice, setChoice] = useState(account.number ? "number" : "qr");
   if (!account.number && !account.qrKey) return <p className="mt-2 text-xs text-muted">{t("whish.notConfigured")}</p>;
@@ -20,7 +20,7 @@ export default function WhishTransfer({ account, reference }) {
         <span className="text-xs underline">{t("whish.openQr")}</span>
       </a>}
       <p className="text-xs text-muted">{t("whish.transferNote")}</p>
-      {reference && <p className="break-all text-xs text-muted">{t("whish.reference")}: <span dir="ltr" className="select-all">{reference}</span></p>}
+      <p className="text-xs text-muted">{t("whish.transferExample")}: <span dir="ltr" className="inline-block select-all font-medium text-ink">Elie Karim - A1</span></p>
     </div>
   );
 }

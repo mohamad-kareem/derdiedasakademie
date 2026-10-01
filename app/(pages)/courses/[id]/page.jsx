@@ -10,6 +10,7 @@ import { getPublishedCourse, safe } from "@/lib/data";
 import { getCurrentUser } from "@/lib/auth";
 import { isId } from "@/lib/validate";
 import { isStaff } from "@/lib/roles";
+import { hasCourseAccess } from "@/lib/enrollment-access";
 import Enrollment from "@/models/Enrollment";
 import { formatDate, formatMoney } from "@/lib/utils";
 
@@ -29,7 +30,7 @@ export default async function CourseDetailPage({ params }) {
   const user = await safe(getCurrentUser(), null);
   let enrollment = null;
   if (user?.role === "student") {
-    enrollment = await Enrollment.findOne({ student: user.id, course: id }).select("status").lean();
+    enrollment = await Enrollment.findOne({ student: user.id, course: id }).select("status paymentStatus amount").lean();
   }
   const weeks = Math.max(1, Math.round((new Date(course.endDate) - new Date(course.startDate)) / (7 * 864e5)));
 
@@ -97,7 +98,7 @@ export default async function CourseDetailPage({ params }) {
                   <div className="space-y-3 text-center">
                     <StatusBadge status={enrollment.status} label={t(`status.${enrollment.status}`)} />
                     <p className="text-sm text-muted">{t(`enroll.state.${enrollment.status}`)}</p>
-                    <Link href={enrollment.status === "pending" ? "/dashboard/courses" : `/dashboard/courses/${course._id}`} className="btn btn-primary w-full">{t("nav.myPortal")}</Link>
+                    <Link href={hasCourseAccess(enrollment) ? `/dashboard/courses/${course._id}` : "/dashboard/courses"} className="btn btn-primary w-full">{t("nav.myPortal")}</Link>
                   </div>
                 ) : user ? (
                   <EnrollBox courseId={course._id} disabled={course.seatsLeft <= 0} />

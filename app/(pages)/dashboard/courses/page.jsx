@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WhishTransfer from "@/components/site/WhishTransfer";
 import { getWhishAccount } from "@/lib/whish";
+import { hasCourseAccess } from "@/lib/enrollment-access";
 import { BookOpen, CalendarDays, Clock, ArrowRight, Award } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
@@ -29,7 +30,8 @@ export default async function MyCoursesPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           {enrollments.map((e) => {
             const c = e.course;
-            const open = ["active", "completed"].includes(e.status);
+            const approved = ["active", "completed"].includes(e.status);
+            const open = hasCourseAccess(e);
             return (
               <div key={e._id} className="card flex flex-col p-5">
                 <div className="flex items-start justify-between gap-3">
@@ -48,11 +50,12 @@ export default async function MyCoursesPage() {
                   {scheduleText(c, t, locale) && <span className="inline-flex items-center gap-1.5"><Clock className="size-4" /> {scheduleText(c, t, locale)}</span>}
                 </div>
                 <p className="mt-3 text-sm text-ink/75">{t(`enroll.state.${e.status}`)}</p>
+                {approved && !open && <p className="mt-2 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{t("whish.accessLocked")}</p>}
                 {e.amount > 0 && !["rejected", "cancelled"].includes(e.status) && (
                   <div className="mt-3 rounded border border-line bg-canvas p-3 text-sm">
                     <p className="font-medium">{t("whish.method")}: Whish Money</p>
-                    {e.paymentStatus === "unpaid" && open && <WhishTransfer account={whishAccount} reference={e._id} />}
-                    {e.paymentStatus === "unpaid" && !open && <p className="mt-1 text-xs text-muted">{t("whish.approvalFirst")}</p>}
+                    {e.paymentStatus === "unpaid" && approved && <WhishTransfer account={whishAccount} />}
+                    {e.paymentStatus === "unpaid" && !approved && <p className="mt-1 text-xs text-muted">{t("whish.approvalFirst")}</p>}
                   </div>
                 )}
                 {e.status !== "rejected" && e.status !== "cancelled" && e.paymentStatus === "unpaid" && e.amount > 0 && (
@@ -60,7 +63,7 @@ export default async function MyCoursesPage() {
                 )}
                 <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4">
                   {open && <Link href={`/dashboard/courses/${c._id}`} className="btn btn-primary btn-sm">{t("student.courses.enter")} <ArrowRight className="size-3.5 rtl:rotate-180" /></Link>}
-                  {e.status === "completed" && <Link href={`/certificate/${e._id}`} className="btn btn-gold btn-sm"><Award className="size-3.5" /> {t("certificate.view")}</Link>}
+                  {e.status === "completed" && open && <Link href={`/certificate/${e._id}`} className="btn btn-gold btn-sm"><Award className="size-3.5" /> {t("certificate.view")}</Link>}
                   {e.status === "pending" && <ActionButton action={cancelEnrollment.bind(null, e._id)} confirm>{t("student.courses.cancelRequest")}</ActionButton>}
                   {(e.status === "rejected" || e.status === "cancelled") && <Link href={`/courses/${c._id}`} className="btn btn-outline btn-sm">{t("student.courses.requestAgain")}</Link>}
                 </div>

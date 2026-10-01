@@ -6,6 +6,7 @@ import Enrollment from "@/models/Enrollment";
 import User from "@/models/User";
 import { isEmailConfigured } from "@/lib/email";
 import { classReminder } from "@/lib/letters";
+import { courseAccessFilter } from "@/lib/enrollment-access";
 
 /**
  * "You have a class today."
@@ -58,7 +59,7 @@ export async function GET(request) {
     const course = courses[String(lesson.course)];
     if (!course) continue;
 
-    const enrolments = await Enrollment.find({ course: lesson.course, status: "active" }).select("student").lean();
+    const enrolments = await Enrollment.find({ course: lesson.course, ...courseAccessFilter({ activeOnly: true }) }).select("student").lean();
     const ids = enrolments.map((e) => e.student);
     if (course.teacher) ids.push(course.teacher);
     if (!ids.length) {

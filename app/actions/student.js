@@ -12,7 +12,7 @@ import Submission from "@/models/Submission";
 import { LEVELS } from "@/lib/constants";
 import { str, isId, fail, done } from "@/lib/validate";
 import { safeUrl } from "@/lib/utils";
-import { parseAttachments, removedKeys } from "@/lib/access";
+import { parseAttachments, removedKeys, canUseCourse } from "@/lib/access";
 import { deleteKeys } from "@/lib/storage";
 import { enrolmentReceived, enrolmentToDecide } from "@/lib/letters";
 
@@ -86,11 +86,7 @@ export async function submitAssignment(assignmentId, formData) {
     (a) => !a.key.includes("/feedback"),
   );
   if (!text && !linkUrl && !attachments.length) return fail("errors.submissionEmpty");
-  const enrolled = await Enrollment.exists({
-    student: user.id,
-    course: assignment.course,
-    status: { $in: ["active", "completed"] },
-  });
+  const enrolled = await canUseCourse(user, assignment.course);
   if (!enrolled) return fail("errors.forbidden");
 
   const existing = await Submission.findOne({ assignment: assignmentId, student: user.id });

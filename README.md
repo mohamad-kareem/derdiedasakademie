@@ -12,6 +12,10 @@ Only the owner can change these details. Approved students with an unpaid amount
 can choose the number or QR in My courses and transfer the displayed course amount
 using Whish. Removing either field and saving removes that option for students.
 Verify receipt in Whish before marking the enrollment paid in Admin → Enrollments.
+Approval alone reserves the seat. Paid course content, assignments, files,
+classrooms and certificates require confirmed payment. Approved enrollments with
+an amount of zero remain accessible without payment. Marking an enrollment unpaid
+revokes access again. Payment instructions remain visible for approved unpaid students.
 
 This is a manual transfer workflow. Automatic invoice creation and payment
 confirmation require official Whish merchant credentials and documentation.

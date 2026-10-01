@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { hasCourseAccess } from "@/lib/enrollment-access";
 import { ArrowLeft, Video, CalendarDays, Clock, Award, ClipboardList, Megaphone, Pin, History, Library, BookA, ExternalLink } from "lucide-react";
 import { Panel, EmptyState } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
@@ -31,6 +32,7 @@ export default async function CourseRoomPage({ params }) {
 
   const enrollment = plain(await Enrollment.findOne({ student: user.id, course: id, status: { $in: ["active", "completed"] } }).populate("course").lean());
   if (!enrollment?.course) notFound();
+  if (!hasCourseAccess(enrollment)) redirect("/dashboard/courses");
   const course = enrollment.course;
 
   const [lessonsRaw, assignments, announcements, resources, attendance, vocabCount] = await Promise.all([

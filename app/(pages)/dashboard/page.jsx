@@ -10,12 +10,13 @@ import { isStorageConfigured } from "@/lib/storage";
 import { getI18n } from "@/lib/i18n/server";
 import { getMyEnrollments, accessibleCourseIds, getMyAssignments, getUpcomingLessons, getAnnouncements } from "@/lib/student-data";
 import { formatDate } from "@/lib/utils";
+import { hasCourseAccess } from "@/lib/enrollment-access";
 
 export default async function StudentOverview() {
   const user = await requireStudent();
   const { t, locale } = await getI18n();
   const enrollments = await getMyEnrollments(user.id);
-  const activeIds = enrollments.filter((e) => e.status === "active").map((e) => e.course._id);
+  const activeIds = enrollments.filter((e) => hasCourseAccess(e, { activeOnly: true })).map((e) => e.course._id);
   const ids = accessibleCourseIds(enrollments);
   const [lessons, assignments, announcements] = await Promise.all([
     getUpcomingLessons(activeIds, 5),
