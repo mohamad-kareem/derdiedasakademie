@@ -27,12 +27,15 @@ export default function ConnectionNotice({ status, onRejoin, onSettled, t }) {
   }, [state, onSettled]);
 
   useEffect(() => {
-    if (!unsettled) {
-      setSlow(false);
-      return undefined;
-    }
+    if (!unsettled) return undefined;
     const id = setTimeout(() => setSlow(true), 3000);
-    return () => clearTimeout(id);
+    // Forgetting on the way out is what makes the next brief wobble silent
+    // again, rather than shouting from the first second because an earlier
+    // one had lasted.
+    return () => {
+      clearTimeout(id);
+      setSlow(false);
+    };
   }, [unsettled]);
 
   if (lost) {

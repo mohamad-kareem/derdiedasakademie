@@ -1,8 +1,8 @@
-import { Check, X, BadgeCheck, CircleDollarSign, RotateCcw, Award } from "lucide-react";
+import { Check, X, BadgeCheck, CircleDollarSign, RotateCcw, Award, Send } from "lucide-react";
 import ActionButton from "@/components/ui/ActionButton";
-import { setEnrollmentStatus, setPaymentStatus } from "@/app/actions/admin";
+import { setEnrollmentStatus, setPaymentStatus, sendPaymentReminder } from "@/app/actions/admin";
 
-export default function EnrollmentActions({ e, t, compact = false }) {
+export default function EnrollmentActions({ e, t, compact = false, canRemind = false }) {
   const id = e._id;
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5 sm:flex-nowrap">
@@ -26,6 +26,13 @@ export default function EnrollmentActions({ e, t, compact = false }) {
             <CircleDollarSign className="size-3.5" /> {!compact && t("admin.enroll.markPaid")}
           </ActionButton>
         )
+      )}
+      {/* A money letter goes out one at a time, and only where there is money
+          owed on a course that is actually running. */}
+      {canRemind && e.status === "active" && e.paymentStatus !== "paid" && e.amount > 0 && (
+        <ActionButton action={sendPaymentReminder.bind(null, id)} confirm title={t("admin.enroll.remind")} className="btn-ghost">
+          <Send className="size-3.5 rtl:-scale-x-100" /> {!compact && t("admin.enroll.remind")}
+        </ActionButton>
       )}
       {e.status === "active" && (
         <ActionButton action={setEnrollmentStatus.bind(null, id, "completed")} confirm title={t("admin.enroll.complete")}>

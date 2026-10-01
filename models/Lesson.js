@@ -9,6 +9,10 @@ const LessonSchema = new mongoose.Schema(
     startsAt: { type: Date, required: true },
     durationMin: { type: Number, default: 90 },
     meetingUrl: { type: String, default: "" },
+    // Written by the course's weekly pattern rather than typed by hand. It is
+    // only a note of where the date came from: once a session exists nothing
+    // moves or removes it automatically.
+    auto: { type: Boolean, default: false },
     materials: [{ title: String, url: String }],
     attachments: [AttachmentSchema],
     roomLocked: { type: Boolean, default: false },
@@ -21,9 +25,16 @@ const LessonSchema = new mongoose.Schema(
       startedAt: Date,
       assignments: [{ user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, group: Number, _id: false }],
     },
+    // When the "you have a class" letters went out, so they go out once.
+    remindedAt: { type: Date, default: null },
     endedAt: Date,
   },
   { timestamps: true },
 );
+
+// One class per course per instant. The weekly pattern tops the calendar up
+// whenever somebody opens the timetable, so two people looking at once must
+// not be able to write the same session twice.
+LessonSchema.index({ course: 1, startsAt: 1 }, { unique: true });
 
 export default mongoose.models.Lesson || mongoose.model("Lesson", LessonSchema);

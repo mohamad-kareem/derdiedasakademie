@@ -5,6 +5,7 @@ import SiteShell from "@/components/site/SiteShell";
 import EnrollBox from "@/components/site/EnrollBox";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import { getI18n } from "@/lib/i18n/server";
+import { scheduleText } from "@/lib/schedule";
 import { getPublishedCourse, safe } from "@/lib/data";
 import { getCurrentUser } from "@/lib/auth";
 import { isId } from "@/lib/validate";
@@ -34,7 +35,7 @@ export default async function CourseDetailPage({ params }) {
 
   const facts = [
     { icon: CalendarDays, label: t("courses.dates"), value: `${formatDate(course.startDate, locale)} – ${formatDate(course.endDate, locale)}` },
-    { icon: Clock, label: t("courses.schedule"), value: course.schedule || "—" },
+    { icon: Clock, label: t("courses.schedule"), value: scheduleText(course, t, locale) || "—" },
     { icon: Layers, label: t("courses.duration"), value: t("courses.weeks", { n: weeks }) },
     { icon: Video, label: t("courses.format"), value: `${t(`format.${course.format}`)} · ${t("courses.online")}` },
     { icon: Users, label: t("courses.seats"), value: course.seatsLeft > 0 ? t("courses.seatsLeft", { n: course.seatsLeft }) : t("courses.full") },

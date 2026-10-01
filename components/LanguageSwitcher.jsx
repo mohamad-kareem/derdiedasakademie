@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Globe, Check, ChevronDown } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { LOCALE_COOKIE } from "@/lib/constants";
+import { rememberLocale } from "@/app/actions/student";
 import { cn } from "@/lib/utils";
 
 const OPTIONS = [
@@ -35,6 +36,8 @@ export default function LanguageSwitcher({ variant = "light", className }) {
     setOpen(false);
     if (code === locale) return;
     applyLocale(code);
+    // Tell the account too, so letters follow the choice. Nobody waits for it.
+    rememberLocale(code).catch(() => {});
     router.refresh();
   }
 

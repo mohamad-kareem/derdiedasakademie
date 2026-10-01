@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -23,6 +24,13 @@ import { deleteKeys } from "@/lib/storage";
 import { LEVELS, RESOURCE_CATEGORIES } from "@/lib/constants";
 import { str, num, isId, isEmail, fail, done } from "@/lib/validate";
 import { parseLocalDateTime, safeUrl } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
+import { findClash, patternClash, sessionVars, slotVars } from "@/lib/clash";
+import { reschedule } from "@/lib/fill";
+import { issueInvite } from "@/lib/tokens";
+import { isEmailConfigured } from "@/lib/email";
+import { staffInvited, enrolmentDecided, paymentReminder, testLetter } from "@/lib/letters";
+import { sortMeetings } from "@/lib/schedule";
 import { can, teaches, isOwner, ROLES } from "@/lib/roles";
 
 /**
@@ -85,6 +93,45 @@ function refresh() {
   revalidatePath("/", "layout");
 }
 
+
+/**
+ * The weekly pattern as the course form sends it: a small JSON payload, since
+ * a variable number of day-and-time pairs does not fit plain form fields.
+ */
+function readPattern(formData) {
+  let raw = [];
+  try {
+    raw = JSON.parse(str(formData, "meetings", 2000) || "[]");
+  } catch {
+    raw = [];
+  }
+  const seen = new Set();
+  const meetings = [];
+  for (const m of Array.isArray(raw) ? raw : []) {
+    const day = Number(m?.day);
+    const start = Math.round(Number(m?.start) / 5) * 5;
+    if (!Number.isInteger(day) || day < 0 || day > 6) continue;
+    if (!Number.isFinite(start) || start < 0 || start > 1439) continue;
+    const key = `${day}:${start}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    meetings.push({ day, start });
+  }
+  return {
+    meetings: sortMeetings(meetings).slice(0, 14),
+    sessionMin: Math.min(600, Math.max(15, Math.round(num(formData, "sessionMin", 90)))),
+    weeksAhead: Math.min(12, Math.max(0, Math.round(num(formData, "weeksAhead", 3)))),
+  };
+}
+
+/** Re-reckon the sessions that follow from a pattern that has just changed. */
+async function afterPattern(courseId) {
+  const course = await Course.findById(courseId).select("title teacher meetings sessionMin weeksAhead startDate endDate status").lean();
+  if (!course) return;
+  const { t } = await getI18n();
+  await reschedule(course, { title: t("admin.timetable.sessionName") });
+}
+
 /* ---------------- Courses ---------------- */
 
 export async function saveCourse(courseId, formData) {
@@ -99,7 +146,7 @@ export async function saveCourse(courseId, formData) {
   let existing = null;
   if (courseId) {
     if (!isId(courseId)) return fail("errors.notFound");
-    existing = await Course.findById(courseId).select("teacher").lean();
+    existing = await Course.findById(courseId).select("teacher meetings sessionMin status startDate endDate title level").lean();
     if (!existing || !teaches(user, existing)) return fail("errors.forbidden");
   }
 
@@ -112,14 +159,23 @@ export async function saveCourse(courseId, formData) {
   // costs, how many seats it has, whether it is published, or who teaches it.
   const teaching = {
     description: str(formData, "description", 5000),
-    schedule: str(formData, "schedule", 200),
     meetingUrl: safeUrl(str(formData, "meetingUrl", 500)),
     classroom: str(formData, "classroom") === "external" ? "external" : "builtin",
     studentCameras: str(formData, "studentCameras") === "on" ? "on" : "off",
+    ...readPattern(formData),
   };
 
+  // When the week changes, so do the dates that follow from it.
+  const patternMoved = (before) =>
+    JSON.stringify(sortMeetings(before?.meetings || [])) !== JSON.stringify(teaching.meetings) ||
+    (before?.sessionMin || 90) !== teaching.sessionMin;
+
   if (!owner) {
+    const clash = await patternClash(existing, teaching.meetings, teaching.sessionMin);
+    if (clash) return fail(clash.self ? "admin.timetable.selfClash" : "admin.timetable.clash", slotVars(clash, (await getI18n()).t));
+    const moved = patternMoved(existing);
     await Course.updateOne({ _id: courseId }, teaching);
+    if (moved) await afterPattern(courseId);
     refresh();
     return done("admin.saved");
   }
@@ -150,12 +206,25 @@ export async function saveCourse(courseId, formData) {
     if (!staff) data.teacher = null;
   }
 
+  // The weekly pattern must fit the diary of whoever ends up teaching it —
+  // which is also the check that catches handing a full term to a busy
+  // colleague, since the slots move to their week without shifting a date.
+  const clash = await patternClash(
+    { _id: courseId || null, title, teacher: data.teacher, status: data.status, startDate, endDate },
+    data.meetings,
+    data.sessionMin,
+  );
+  if (clash) return fail(clash.self ? "admin.timetable.selfClash" : "admin.timetable.clash", slotVars(clash, (await getI18n()).t));
+
   if (courseId) {
+    const moved = patternMoved(existing) || String(existing.teacher || "") !== String(data.teacher || "");
     await Course.updateOne({ _id: courseId }, data);
+    if (moved) await afterPattern(courseId);
     refresh();
     return done("admin.saved");
   }
   const course = await Course.create(data);
+  await afterPattern(course._id);
   refresh();
   redirect(`/admin/courses/${course._id}`);
 }
@@ -217,12 +286,18 @@ export async function saveLesson(courseId, lessonId, formData) {
   if (!title) return fail("errors.titleRequired");
   if (!startsAt) return fail("errors.datesRequired");
 
+  const durationMin = Math.max(15, Math.round(num(formData, "durationMin", 90)));
+  // Nobody teaches two classes at once — not even two of their own.
+  const course = await Course.findById(courseId).select("title teacher").lean();
+  const clash = await findClash(course, startsAt, durationMin, [lessonId]);
+  if (clash) return fail("admin.timetable.sessionClash", sessionVars(clash, (await getI18n()).locale));
+
   const data = {
     course: courseId,
     title,
     description: str(formData, "description", 3000),
     startsAt,
-    durationMin: Math.max(15, Math.round(num(formData, "durationMin", 90))),
+    durationMin,
     meetingUrl: safeUrl(str(formData, "meetingUrl", 500)),
     materials: parseMaterials(formData.get("materials")),
     attachments: parseAttachments(formData, "attachments", `courses/${courseId}/`),
@@ -231,7 +306,9 @@ export async function saveLesson(courseId, lessonId, formData) {
     if (!isId(lessonId)) return fail("errors.notFound");
     const before = await Lesson.findOne({ _id: lessonId, course: courseId }).select("attachments").lean();
     if (!before) return fail("errors.notFound");
-    await Lesson.updateOne({ _id: lessonId, course: courseId }, data);
+    // Touched by hand, so the weekly pattern no longer counts it as its own
+    // and will never tidy it away.
+    await Lesson.updateOne({ _id: lessonId, course: courseId }, { ...data, auto: false });
     await deleteKeys(removedKeys(before.attachments, data.attachments));
   } else {
     await Lesson.create(data);
@@ -378,11 +455,22 @@ export async function setEnrollmentStatus(enrollmentId, status) {
     const taken = await Enrollment.countDocuments({ course: enrollment.course._id, status: "active" });
     if (taken >= enrollment.course.capacity) return fail("errors.courseFull");
   }
+  const decided = status !== enrollment.status;
   enrollment.status = status;
   if (status === "active" && !enrollment.approvedAt) enrollment.approvedAt = new Date();
   if (status === "completed") enrollment.completedAt = new Date();
   if (status !== "completed") enrollment.completedAt = undefined;
   await enrollment.save();
+
+  if (decided && ["active", "rejected"].includes(status)) {
+    const [student, course, first] = await Promise.all([
+      User.findById(enrollment.student).select("name email locale").lean(),
+      Course.findById(enrollment.course._id).select("title level").lean(),
+      Lesson.findOne({ course: enrollment.course._id, startsAt: { $gte: new Date() } }).sort({ startsAt: 1 }).select("startsAt").lean(),
+    ]);
+    if (student && course) await enrolmentDecided(student, course, status, first);
+  }
+
   refresh();
   return done();
 }
@@ -393,6 +481,31 @@ export async function setPaymentStatus(enrollmentId, paymentStatus) {
   await Enrollment.updateOne({ _id: enrollmentId }, { paymentStatus });
   refresh();
   return done();
+}
+
+export async function setWhishPaymentLink(enrollmentId, formData) {
+  if (!(await guard("finance.manage")) || !isId(enrollmentId)) return fail("errors.forbidden");
+  const raw = str(formData, "whishPaymentUrl", 2000);
+  let whishPaymentUrl = "";
+  if (raw) {
+    try {
+      const url = new URL(raw);
+      if (url.protocol !== "https:" || url.username || url.password || url.port ||
+          !(url.hostname === "whish.money" || url.hostname.endsWith(".whish.money"))) {
+        return fail("whish.invalidLink");
+      }
+      whishPaymentUrl = url.href;
+    } catch {
+      return fail("whish.invalidLink");
+    }
+  }
+  const result = await Enrollment.updateOne(
+    { _id: enrollmentId, status: "active", paymentStatus: "unpaid", amount: { $gt: 0 } },
+    { paymentMethod: "whish", whishPaymentUrl },
+  );
+  if (!result.matchedCount) return fail("errors.generic");
+  refresh();
+  return done("whish.saved");
 }
 
 export async function addStudentToCourse(courseId, formData) {
@@ -534,11 +647,23 @@ export async function saveStaff(staffId, formData) {
   }
 
   if (await User.exists({ email })) return fail("errors.emailTaken");
+
+  // A colleague chooses their own password from a link. Where there is no post
+  // room yet, one is typed for them and passed on by hand, as before.
   const password = String(formData.get("password") || "");
-  if (password.length < 8) return fail("errors.passwordShort");
-  await User.create({ ...data, password: await bcrypt.hash(password, 12), level: "unknown" });
+  const byPost = isEmailConfigured() && !password;
+  if (!byPost && password.length < 8) return fail("errors.passwordShort");
+
+  const { locale } = await getI18n();
+  const created = await User.create({
+    ...data,
+    locale,
+    level: "unknown",
+    password: await bcrypt.hash(password || crypto.randomUUID(), 12),
+  });
+  if (byPost) await staffInvited(created, await issueInvite(created._id));
   refresh();
-  return done("admin.staff.created");
+  return done(byPost ? "admin.staff.invited" : "admin.staff.created");
 }
 
 /** Suspends or restores a colleague. A suspended account cannot sign in. */
@@ -571,4 +696,41 @@ export async function deleteStaff(staffId) {
   await User.deleteOne({ _id: staffId });
   refresh();
   return done();
+}
+
+/**
+ * Remind somebody that a course has not been paid for.
+ *
+ * Sent one at a time and on purpose, from the enrolment's own row, because a
+ * money letter is a judgement about a particular person and should never go
+ * out in a batch that nobody read first.
+ */
+export async function sendPaymentReminder(enrollmentId) {
+  if (!(await guard("finance.manage")) || !isId(enrollmentId)) return fail("errors.forbidden");
+  if (!isEmailConfigured()) return fail("errors.emailNotConfigured");
+
+  const enrollment = await Enrollment.findById(enrollmentId)
+    .populate("student", "name email locale")
+    .populate("course", "title currency")
+    .lean();
+  if (!enrollment?.student || !enrollment.course) return fail("errors.notFound");
+  if (enrollment.paymentStatus === "paid") return fail("errors.alreadyPaid");
+
+  const sent = await paymentReminder(
+    enrollment.student,
+    enrollment.course,
+    enrollment.amount || 0,
+    enrollment.course.currency || "EUR",
+  );
+  return sent ? done("admin.enroll.reminderSent") : fail("errors.emailFailed");
+}
+
+/** Send one letter to an address of the owner's choosing, to prove the post works. */
+export async function sendTestEmail(formData) {
+  if (!(await guard("system.settings"))) return fail("errors.forbidden");
+  if (!isEmailConfigured()) return fail("errors.emailNotConfigured");
+  const to = str(formData, "to", 200).toLowerCase();
+  if (!isEmail(to)) return fail("errors.invalidEmail");
+  const { locale } = await getI18n();
+  return (await testLetter(to, locale)) ? done("admin.settings.testSent") : fail("errors.emailFailed");
 }

@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { Users, Layers, Wallet, FileCheck2, CalendarDays, Inbox, Plus } from "lucide-react";
+import { Layers, FileCheck2, Inbox, Plus, CalendarRange } from "lucide-react";
 import { PageHeader, StatRow, Panel, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge } from "@/components/ui/Badges";
-import LessonItem from "@/components/portal/LessonItem";
+import CourseRows from "@/components/admin/CourseRows";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
 import { requireStaff } from "@/lib/auth";
 import { can, isOwner, ownCoursesFilter } from "@/lib/roles";
 import { getI18n } from "@/lib/i18n/server";
+import { lessonState } from "@/lib/student-data";
+import { plannedCount } from "@/lib/schedule";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 import Course from "@/models/Course";
@@ -15,27 +17,40 @@ import Lesson from "@/models/Lesson";
 import Submission from "@/models/Submission";
 import Inquiry from "@/models/Inquiry";
 import "@/models/Assignment";
-import { formatDate, formatMoney, hoursAgo, plain } from "@/lib/utils";
+import { formatDate, formatMoney, nowMs, plain } from "@/lib/utils";
 
+/**
+ * The overview.
+ *
+ * Organised by course rather than by class. A term is hundreds of classes and
+ * listing them one under another says nothing you can act on; what a person
+ * running an academy wants at a glance is the state of each course — when it
+ * next meets, how far through it is, whether it is full — and the two or three
+ * things actually waiting for a decision.
+ */
 export default async function AdminOverview() {
   const user = await requireStaff();
   const { t, locale } = await getI18n();
   await connectDB();
 
-  // Everything below is scoped to what this person is responsible for: the
-  // owner sees the academy, a teacher sees their own courses and nothing else.
   const owner = isOwner(user);
   const money = can(user, "finance.view");
   const decide = can(user, "enrollments.decide");
 
-  const mineDocs = await Course.find(ownCoursesFilter(user)).select("_id").lean();
-  const mineIds = mineDocs.map((c) => c._id);
+  const mine = await Course.find({ ...ownCoursesFilter(user), status: { $ne: "archived" } })
+    .select("title level teacher capacity currency meetings sessionMin schedule status startDate endDate classroom")
+    .sort({ level: 1, title: 1 })
+    .lean();
+  const mineIds = mine.map((c) => c._id);
   const courseScope = owner ? {} : { course: { $in: mineIds } };
 
-  const [pendingCount, students, activeCount, revenueAgg, outstandingAgg, toGrade, newInquiries, pending, lessons, courses, enrollCounts, recentSubs] = await Promise.all([
-    Enrollment.countDocuments({ ...courseScope, status: "pending" }),
+  // One pass over the classes and one over the enrolments, then everything the
+  // page needs is worked out in memory. A term is a few hundred rows, which is
+  // cheaper to read once than to ask about six times.
+  const [lessons, enrolments, students, revenueAgg, outstandingAgg, toGrade, newInquiries, pending, recentSubs, staff] = await Promise.all([
+    mineIds.length ? Lesson.find({ course: { $in: mineIds } }).select("course title startsAt durationMin").sort({ startsAt: 1 }).lean() : [],
+    mineIds.length ? Enrollment.find({ course: { $in: mineIds } }).select("course status").lean() : [],
     owner ? User.countDocuments({ role: "student" }) : Enrollment.distinct("student", { ...courseScope, status: "active" }).then((l) => l.length),
-    Enrollment.countDocuments({ ...courseScope, status: "active" }),
     money ? Enrollment.aggregate([{ $match: { paymentStatus: "paid" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]) : [],
     money ? Enrollment.aggregate([{ $match: { paymentStatus: "unpaid", status: { $in: ["active", "completed"] } } }, { $group: { _id: null, total: { $sum: "$amount" } } }]) : [],
     Submission.countDocuments({ ...courseScope, status: "submitted" }),
@@ -43,17 +58,63 @@ export default async function AdminOverview() {
     decide
       ? Enrollment.find({ status: "pending" }).populate("student", "name email level").populate("course", "title level").sort({ createdAt: -1 }).limit(6).lean()
       : [],
-    Lesson.find({ ...(owner ? {} : { course: { $in: mineIds } }), startsAt: { $gte: hoursAgo(2) } })
-      .populate("course", "title level meetingUrl classroom")
-      .sort({ startsAt: 1 })
-      .limit(6)
-      .lean(),
-    Course.find({ status: "published", endDate: { $gte: new Date() }, ...ownCoursesFilter(user) }).sort({ startDate: 1 }).limit(6).lean(),
-    Enrollment.aggregate([{ $match: { status: "active" } }, { $group: { _id: "$course", n: { $sum: 1 } } }]),
     Submission.find({ ...courseScope, status: "submitted" }).populate("student", "name").populate("assignment", "title").sort({ createdAt: -1 }).limit(5).lean(),
+    owner ? User.find({ role: { $in: ["owner", "teacher", "admin"] } }).select("name").lean() : [],
   ]);
-  const counts = Object.fromEntries(enrollCounts.map((c) => [String(c._id), c.n]));
-  const currency = courses[0]?.currency || "EUR";
+
+  const now = nowMs();
+  const nameOf = Object.fromEntries(staff.map((s) => [String(s._id), s.name]));
+
+  const tally = {};
+  for (const l of lessons) {
+    const key = String(l.course);
+    const row = (tally[key] ||= { total: 0, done: 0, next: null });
+    row.total += 1;
+    const state = lessonState(l);
+    if (state === "past") row.done += 1;
+    else if (!row.next) row.next = { ...l, state };
+  }
+
+  const seats = {};
+  for (const e of enrolments) {
+    const key = String(e.course);
+    const row = (seats[key] ||= { active: 0, pending: 0 });
+    if (e.status === "active") row.active += 1;
+    if (e.status === "pending") row.pending += 1;
+  }
+
+  const courses = plain(mine).map((c) => {
+    const n = tally[c._id] || { total: 0, done: 0, next: null };
+    const s = seats[c._id] || { active: 0, pending: 0 };
+    const next = n.next
+      ? {
+          _id: String(n.next._id),
+          title: n.next.title,
+          startsAt: n.next.startsAt,
+          state: n.next.state,
+          // "Soon" is the hour before the bell: long enough to let a teacher in
+          // early, short enough that the button is not on screen all week.
+          soon: new Date(n.next.startsAt).getTime() - now < 60 * 60000,
+          href: c.classroom === "external" ? `/admin/courses/${c._id}` : `/classroom/${String(n.next._id)}`,
+        }
+      : null;
+    // Only a few weeks of classes exist at a time, so the term's length comes
+    // from the weekly pattern rather than from the rows written so far.
+    const total = plannedCount(c) ?? n.total;
+    return { ...c, teacher: c.teacher ? nameOf[String(c.teacher)] || "" : "", total: Math.max(total, n.done), done: n.done, next, ...s };
+  });
+
+  // Whatever is happening soonest comes first; courses with nothing planned sink.
+  courses.sort((a, b) => {
+    const at = a.next ? new Date(a.next.startsAt).getTime() : Infinity;
+    const bt = b.next ? new Date(b.next.startsAt).getTime() : Infinity;
+    return at - bt || a.title.localeCompare(b.title);
+  });
+
+  const running = courses.filter((c) => c.next).length;
+  const currency = mine[0]?.currency || "EUR";
+  const pendingCount = enrolments.filter((e) => e.status === "pending").length;
+  const activeCount = enrolments.filter((e) => e.status === "active").length;
 
   return (
     <>
@@ -61,30 +122,32 @@ export default async function AdminOverview() {
         title={t("admin.overview.title", { name: user.name.split(" ")[0] })}
         description={t(owner ? "admin.overview.subtitle" : "admin.overview.teacherSubtitle")}
         actions={
-          can(user, "courses.create") && (
-            <Link href="/admin/courses?new=1" className="btn btn-primary">
-              <Plus className="size-3.5" /> {t("admin.courses.new")}
+          <>
+            <Link href="/admin/schedule" className="btn btn-outline">
+              <CalendarRange className="size-3.5" /> {t("admin.nav.schedule")}
             </Link>
-          )
+            {can(user, "courses.create") && (
+              <Link href="/admin/courses?new=1" className="btn btn-primary">
+                <Plus className="size-3.5" /> {t("admin.courses.new")}
+              </Link>
+            )}
+          </>
         }
       >
         <Breadcrumb trail={[t(owner ? "admin.portal" : "admin.teacherPortal"), t("admin.nav.overview")]} />
       </PageHeader>
 
-      {/* ------------------------------------------------------- key figures */}
       <StatRow
         items={[
+          { label: t("admin.stats.courses"), value: courses.length, hint: t("admin.stats.coursesHint", { n: running }) },
           { label: t("admin.stats.students"), value: students, hint: t("admin.stats.activeEnrollments", { n: activeCount }) },
-          money
-            ? { label: t("admin.stats.pending"), value: pendingCount, hint: t("admin.stats.pendingHint") }
-            : { label: t("admin.stats.myCourses"), value: courses.length, hint: t("admin.stats.myCoursesHint") },
           money
             ? {
                 label: t("admin.stats.revenue"),
                 value: formatMoney(revenueAgg[0]?.total || 0, currency, locale),
                 hint: t("admin.stats.outstanding", { amount: formatMoney(outstandingAgg[0]?.total || 0, currency, locale) }),
               }
-            : { label: t("admin.stats.upcoming"), value: lessons.length, hint: t("admin.stats.upcomingHint") },
+            : { label: t("admin.stats.pending"), value: pendingCount, hint: t("admin.stats.pendingHint") },
           {
             label: t("admin.stats.toGrade"),
             value: toGrade,
@@ -94,105 +157,75 @@ export default async function AdminOverview() {
         ]}
       />
 
+      {/* --------------------------------------------------------- the courses */}
+      <Panel
+        className="mt-5"
+        title={t(owner ? "admin.overview.running" : "admin.overview.myCourses")}
+        action={
+          <Link href="/admin/courses" className="text-[11.5px] font-semibold text-navy-700 hover:underline">
+            {t("common.viewAll")}
+          </Link>
+        }
+      >
+        <CourseRows courses={courses} t={t} locale={locale} showTeacher={owner} />
+      </Panel>
+
       <div className="mt-5 grid gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">
           {/* --------------------------------------------- enrolment requests */}
           {decide && (
-          <Panel
-            title={t("admin.overview.requests")}
-            action={
-              <Link href="/admin/enrollments" className="text-[11.5px] font-semibold text-navy-700 hover:underline">
-                {t("common.viewAll")}
-              </Link>
-            }
-          >
-            {pending.length ? (
-              <div className="overflow-x-auto">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>{t("admin.fields.student")}</th>
-                      <th>{t("admin.fields.course")}</th>
-                      <th className="w-28">{t("common.date")}</th>
-                      <th className="w-56" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {plain(pending).map((e) => (
-                      <tr key={e._id}>
-                        <td>
-                          <span className="block font-medium text-ink">{e.student?.name}</span>
-                          <span className="block text-[11.5px] text-muted">{e.student?.email}</span>
-                        </td>
-                        <td>
-                          <span className="flex items-center gap-2">
-                            <LevelBadge level={e.course?.level} />
-                            <span className="min-w-0 truncate">{e.course?.title}</span>
-                          </span>
-                          {e.message && <span className="mt-0.5 block line-clamp-1 text-[11.5px] italic text-muted">“{e.message}”</span>}
-                        </td>
-                        <td className="whitespace-nowrap text-muted">{formatDate(e.createdAt, locale)}</td>
-                        <td>
-                          <div className="flex justify-end">
-                            <EnrollmentActions e={e} t={t} />
-                          </div>
-                        </td>
+            <Panel
+              title={t("admin.overview.requests")}
+              action={
+                <Link href="/admin/enrollments" className="text-[11.5px] font-semibold text-navy-700 hover:underline">
+                  {t("common.viewAll")}
+                </Link>
+              }
+            >
+              {pending.length ? (
+                <div className="overflow-x-auto">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>{t("admin.fields.student")}</th>
+                        <th>{t("admin.fields.course")}</th>
+                        <th className="w-28">{t("common.date")}</th>
+                        <th className="w-56" />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <EmptyState icon={<Layers className="size-4" />} title={t("admin.overview.noRequests")} />
-            )}
-          </Panel>
+                    </thead>
+                    <tbody>
+                      {plain(pending).map((e) => (
+                        <tr key={e._id}>
+                          <td>
+                            <span className="block font-medium text-ink">{e.student?.name}</span>
+                            <span className="block text-[11.5px] text-muted">{e.student?.email}</span>
+                          </td>
+                          <td>
+                            <span className="flex items-center gap-2">
+                              <LevelBadge level={e.course?.level} />
+                              <span className="min-w-0 truncate">{e.course?.title}</span>
+                            </span>
+                            {e.message && <span className="mt-0.5 block line-clamp-1 text-[11.5px] italic text-muted">“{e.message}”</span>}
+                          </td>
+                          <td className="whitespace-nowrap text-muted">{formatDate(e.createdAt, locale)}</td>
+                          <td>
+                            <div className="flex justify-end">
+                              <EnrollmentActions e={e} t={t} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <EmptyState icon={<Layers className="size-4" />} title={t("admin.overview.noRequests")} />
+              )}
+            </Panel>
           )}
-
-          {/* ------------------------------------------------ upcoming classes */}
-          <Panel title={t("admin.overview.upcoming")} bodyClassName="divide-y divide-line">
-            {lessons.length ? (
-              plain(lessons).map((l) => <LessonItem key={l._id} lesson={l} t={t} locale={locale} showCourse isTeacher />)
-            ) : (
-              <EmptyState icon={<CalendarDays className="size-4" />} title={t("student.overview.noSessions")} />
-            )}
-          </Panel>
         </div>
 
         <div className="space-y-5">
-          {/* ------------------------------------------------- running courses */}
-          <Panel
-            title={t(owner ? "admin.overview.running" : "admin.overview.myCourses")}
-            action={
-              <Link href="/admin/courses" className="text-[11.5px] font-semibold text-navy-700 hover:underline">
-                {t("common.viewAll")}
-              </Link>
-            }
-            bodyClassName="divide-y divide-line"
-          >
-            {courses.length ? (
-              plain(courses).map((c) => {
-                const n = counts[c._id] || 0;
-                const full = Math.min(100, Math.round((n / c.capacity) * 100));
-                return (
-                  <Link key={c._id} href={`/admin/courses/${c._id}`} className="block px-3.5 py-2.5 hover:bg-cream/60">
-                    <div className="flex items-center gap-2">
-                      <LevelBadge level={c.level} />
-                      <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{c.title}</p>
-                      <span className="shrink-0 text-[11.5px] text-muted tabular">
-                        {n}/{c.capacity}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-1 w-full bg-canvas">
-                      <div className="h-full bg-navy-700" style={{ width: `${full}%` }} />
-                    </div>
-                  </Link>
-                );
-              })
-            ) : (
-              <EmptyState title={t("admin.courses.empty")} />
-            )}
-          </Panel>
-
           {/* ---------------------------------------------- awaiting marking */}
           <Panel
             title={t("admin.overview.toGrade")}
@@ -229,3 +262,5 @@ export default async function AdminOverview() {
     </>
   );
 }
+
+export const dynamic = "force-dynamic";

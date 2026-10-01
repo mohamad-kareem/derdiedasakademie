@@ -5,6 +5,7 @@ import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import ActionButton from "@/components/ui/ActionButton";
 import { requireStudent } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
+import { scheduleText } from "@/lib/schedule";
 import { getMyEnrollments } from "@/lib/student-data";
 import { cancelEnrollment } from "@/app/actions/student";
 import { formatDate, formatMoney } from "@/lib/utils";
@@ -41,9 +42,18 @@ export default async function MyCoursesPage() {
                 <h3 className="mt-3 text-lg font-semibold text-navy-900">{c.title}</h3>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
                   <span className="inline-flex items-center gap-1.5"><CalendarDays className="size-4" /> {formatDate(c.startDate, locale)} – {formatDate(c.endDate, locale)}</span>
-                  {c.schedule && <span className="inline-flex items-center gap-1.5"><Clock className="size-4" /> {c.schedule}</span>}
+                  {scheduleText(c, t, locale) && <span className="inline-flex items-center gap-1.5"><Clock className="size-4" /> {scheduleText(c, t, locale)}</span>}
                 </div>
                 <p className="mt-3 text-sm text-ink/75">{t(`enroll.state.${e.status}`)}</p>
+                {e.paymentMethod === "whish" && e.amount > 0 && !["rejected", "cancelled"].includes(e.status) && (
+                  <div className="mt-3 rounded border border-line bg-canvas p-3 text-sm">
+                    <p className="font-medium">{t("whish.method")}: Whish Money</p>
+                    {e.paymentStatus === "unpaid" && <p className="mt-1 text-xs text-muted">{t(e.status === "active" && e.whishPaymentUrl ? "whish.verifyNote" : "whish.waiting")}</p>}
+                    {e.status === "active" && e.paymentStatus === "unpaid" && e.whishPaymentUrl && (
+                      <a href={e.whishPaymentUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm mt-3">{t("whish.pay")}</a>
+                    )}
+                  </div>
+                )}
                 {e.status !== "rejected" && e.status !== "cancelled" && e.paymentStatus === "unpaid" && e.amount > 0 && (
                   <p className="mt-2 text-xs text-muted">{t("student.courses.amountDue", { amount: formatMoney(e.amount, c.currency, locale) })}</p>
                 )}

@@ -14,6 +14,7 @@ import { str, isId, fail, done } from "@/lib/validate";
 import { safeUrl } from "@/lib/utils";
 import { parseAttachments, removedKeys } from "@/lib/access";
 import { deleteKeys } from "@/lib/storage";
+import { enrolmentReceived, enrolmentToDecide } from "@/lib/letters";
 
 function refresh() {
   revalidatePath("/", "layout");
@@ -23,6 +24,8 @@ export async function requestEnrollment(courseId, formData) {
   const user = await actionUser("student");
   if (!user) return fail("errors.loginRequired");
   if (!isId(courseId)) return fail("errors.notFound");
+  const paymentMethod = str(formData, "paymentMethod", 30);
+  if (paymentMethod !== "whish") return fail("whish.invalidMethod");
 
   await connectDB();
   const course = await Course.findOne({ _id: courseId, status: "published" }).lean();
@@ -37,6 +40,8 @@ export async function requestEnrollment(courseId, formData) {
   const data = {
     status: "pending",
     paymentStatus: "unpaid",
+    paymentMethod,
+    whishPaymentUrl: "",
     amount: course.price,
     message: str(formData, "message", 1000),
   };
@@ -46,6 +51,12 @@ export async function requestEnrollment(courseId, formData) {
   } else {
     await Enrollment.create({ student: user.id, course: courseId, ...data });
   }
+  // Both halves of the conversation: a receipt for the student, and a note to
+  // whoever has to decide.
+  const staff = await User.find({ role: { $in: ["owner", "admin"] }, isActive: true }).select("name email locale").lean();
+  await enrolmentReceived(user, course);
+  for (const person of staff) await enrolmentToDecide(person, user, course);
+
   refresh();
   return done("enroll.requested");
 }
@@ -167,4 +178,21 @@ export async function clearAvatar() {
   if (previous) await deleteKeys([previous]);
   refresh();
   return done("profile.photoRemoved");
+}
+
+/**
+ * Remember the language somebody just chose.
+ *
+ * The switcher works from a cookie, which is right for the screen but says
+ * nothing to the post room. This records the choice on the account so that a
+ * class reminder written at six in the morning, with nobody's cookie in
+ * sight, still arrives in the language they read.
+ */
+export async function rememberLocale(locale) {
+  if (!["en", "de", "ar"].includes(locale)) return fail("errors.generic");
+  const user = await actionUser();
+  if (!user) return done();
+  await connectDB();
+  await User.updateOne({ _id: user.id }, { locale });
+  return done();
 }

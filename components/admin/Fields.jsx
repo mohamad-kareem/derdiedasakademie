@@ -1,5 +1,6 @@
 import { LEVELS, RESOURCE_CATEGORIES } from "@/lib/constants";
 import FileUploader from "@/components/files/FileUploader";
+import MeetingsField from "@/components/admin/MeetingsField";
 
 import { toLocalInput, cn } from "@/lib/utils";
 
@@ -43,9 +44,7 @@ export function CourseFields({ t, course = {}, owner = true, staff = [] }) {
       <F label={`${t("admin.fields.endDate")} *`}>
         <input type="date" name="endDate" required defaultValue={toLocalInput(course.endDate, true)} className="input" />
       </F>
-      <F label={t("admin.fields.schedule")} hint={t("admin.fields.scheduleHint")} full>
-        <input name="schedule" defaultValue={course.schedule} className="input" placeholder="Mon & Wed · 18:00–19:30" />
-      </F>
+      <MeetingsField course={course} />
       <F label={t("admin.fields.price")}>
         <div className="flex">
           <input type="number" name="price" min="0" step="1" defaultValue={course.price ?? 0} className="input rounded-e-none" />
@@ -96,9 +95,7 @@ export function CourseFields({ t, course = {}, owner = true, staff = [] }) {
 function TeachingFields({ t, course }) {
   return (
     <>
-      <F label={t("admin.fields.schedule")} hint={t("admin.fields.scheduleHint")} full>
-        <input name="schedule" defaultValue={course.schedule} className="input" placeholder="Mon & Wed · 18:00–19:30" />
-      </F>
+      <MeetingsField course={course} />
       <F label={t("admin.fields.classroom")} hint={t("admin.fields.classroomHint")} full>
         <select name="classroom" defaultValue={course.classroom || "builtin"} className="input">
           <option value="builtin">{t("admin.fields.classroomBuiltin")}</option>
@@ -122,7 +119,7 @@ function TeachingFields({ t, course }) {
 }
 
 /** A colleague's account. */
-export function StaffFields({ t, person = {}, creating = false }) {
+export function StaffFields({ t, person = {}, creating = false, byPost = false }) {
   return (
     <>
       <F label={`${t("form.fullName")} *`} full>
@@ -144,9 +141,17 @@ export function StaffFields({ t, person = {}, creating = false }) {
         </select>
       </F>
       {creating && (
-        <F label={`${t("form.password")} *`} hint={t("admin.staff.passwordHint")} full>
-          <input type="password" name="password" required minLength={8} className="input" dir="ltr" autoComplete="new-password" />
-        </F>
+        byPost ? (
+          /* With a post room, a colleague chooses their own password from a
+             link and nobody has to invent one for them or read it out loud. */
+          <p className="rounded-[3px] border border-line bg-cream px-3 py-2.5 text-[12.5px] text-muted sm:col-span-2">
+            {t("admin.staff.invitedHint")}
+          </p>
+        ) : (
+          <F label={`${t("form.password")} *`} hint={t("admin.staff.passwordHint")} full>
+            <input type="password" name="password" required minLength={8} className="input" dir="ltr" autoComplete="new-password" />
+          </F>
+        )
       )}
     </>
   );

@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/ui/Badges";
 import Avatar from "@/components/ui/Avatar";
 import FormModal from "@/components/admin/FormModal";
 import { StaffFields } from "@/components/admin/Fields";
+import { isEmailConfigured } from "@/lib/email";
 import StaffRowActions from "@/components/admin/StaffRowActions";
 import { requireOwner } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
@@ -46,7 +47,7 @@ export default async function StaffPage() {
             action={saveStaff.bind(null, null)}
             submitLabel={t("admin.staff.create")}
           >
-            <StaffFields t={t} creating />
+            <StaffFields t={t} creating byPost={isEmailConfigured()} />
           </FormModal>
         }
       >

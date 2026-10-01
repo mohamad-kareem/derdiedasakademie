@@ -16,6 +16,14 @@ const UserSchema = new mongoose.Schema(
     title: { type: String, default: "", trim: true, maxlength: 80 },
     isActive: { type: Boolean, default: true },
     adminNote: { type: String, default: "" },
+    // The language this person reads. Set when they sign up and whenever they
+    // change it, so a letter arrives in the language they chose rather than in
+    // whatever the person who triggered it happens to be using.
+    locale: { type: String, enum: ["en", "de", "ar"], default: "en" },
+    // A single-use ticket for setting a password: only its hash is kept, so a
+    // leaked database still cannot be used to take over an account.
+    resetTokenHash: { type: String, default: "", select: false },
+    resetExpires: { type: Date, select: false },
     lastLoginAt: { type: Date },
   },
   { timestamps: true },

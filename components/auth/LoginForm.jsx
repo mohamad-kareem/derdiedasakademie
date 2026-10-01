@@ -16,7 +16,12 @@ export default function LoginForm({ next }) {
         <input name="email" type="email" required autoComplete="email" className="input h-11" dir="ltr" />
       </label>
       <label className="block">
-        <span className="label">{t("form.password")}</span>
+        <span className="flex items-baseline justify-between gap-3">
+          <span className="label">{t("form.password")}</span>
+          <Link href="/forgot" className="mb-1.5 text-[12px] text-muted hover:text-navy-900 hover:underline">
+            {t("auth.reset.forgot")}
+          </Link>
+        </span>
         <PasswordInput name="password" autoComplete="current-password" />
       </label>
       <SubmitButton className="btn-lg w-full">{t("auth.login")}</SubmitButton>

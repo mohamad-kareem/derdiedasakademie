@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
 import { getPublishedCourses } from "@/lib/data";
+import { getI18n } from "@/lib/i18n/server";
+import { scheduleText } from "@/lib/schedule";
 
 // Public, read-only list of published courses (e.g. for integrations).
 export async function GET(request) {
   try {
     const level = request.nextUrl.searchParams.get("level") || undefined;
-    const courses = await getPublishedCourses({ level, upcomingOnly: true });
+    const [courses, { t, locale }] = await Promise.all([getPublishedCourses({ level, upcomingOnly: true }), getI18n()]);
     return NextResponse.json({
-      courses: courses.map(({ _id, title, level, format, schedule, startDate, endDate, price, currency, seatsLeft }) => ({
-        id: _id, title, level, format, schedule, startDate, endDate, price, currency, seatsLeft,
+      courses: courses.map((c) => ({
+        id: c._id,
+        title: c.title,
+        level: c.level,
+        format: c.format,
+        schedule: scheduleText(c, t, locale),
+        meetings: c.meetings || [],
+        sessionMin: c.sessionMin || 90,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        price: c.price,
+        currency: c.currency,
+        seatsLeft: c.seatsLeft,
       })),
     });
   } catch (error) {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, Clock, Users, ArrowRight } from "lucide-react";
 import { LevelBadge } from "@/components/ui/Badges";
+import { scheduleText } from "@/lib/schedule";
 import { formatDate, formatMoney } from "@/lib/utils";
 
 export default function CourseCard({ course, t, locale }) {
@@ -19,7 +20,7 @@ export default function CourseCard({ course, t, locale }) {
         {course.description && <p className="mt-1.5 line-clamp-2 text-[13px] text-muted">{course.description}</p>}
         <ul className="mb-4 mt-3 space-y-1.5 text-[13px] text-ink/80">
           <li className="flex items-center gap-2"><CalendarDays className="size-3.5 text-gold-600" />{formatDate(course.startDate, locale)} – {formatDate(course.endDate, locale)}</li>
-          {course.schedule && <li className="flex items-center gap-2"><Clock className="size-3.5 text-gold-600" />{course.schedule}</li>}
+          {scheduleText(course, t, locale) && <li className="flex items-center gap-2"><Clock className="size-3.5 text-gold-600" />{scheduleText(course, t, locale)}</li>}
           <li className="flex items-center gap-2">
             <Users className="size-3.5 text-gold-600" />
             {full ? <span className="font-medium text-red-600">{t("courses.full")}</span> : t("courses.seatsLeft", { n: course.seatsLeft })}

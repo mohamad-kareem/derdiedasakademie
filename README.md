@@ -4,6 +4,19 @@ Next.js 16 · React 19 · Tailwind CSS 4 · MongoDB (data + files) · LiveKit ·
 
 ## 1. Install & run
 
+### Whish Money payments
+
+Students select Whish Money when requesting enrollment. After approving a seat,
+open Admin → Enrollments → Whish payment link and paste the official Whish link
+created for that student's course amount and currency. The student can then pay
+from My courses. Only HTTPS links on whish.money or its subdomains are accepted.
+Clear the field to remove a link. Verify receipt in Whish before marking the
+enrollment paid; opening the link does not confirm payment.
+
+This is a payment-link workflow. Automatic invoice creation and payment
+confirmation require official Whish merchant credentials and documentation.
+The payment method is stored separately so additional methods can be added later.
+
 ```bash
 npm install
 npm run dev        # http://localhost:3000

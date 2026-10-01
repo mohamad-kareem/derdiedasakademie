@@ -3,6 +3,8 @@ import { Layers } from "lucide-react";
 import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
+import WhishPaymentLink from "@/components/admin/WhishPaymentLink";
+import { isEmailConfigured } from "@/lib/email";
 import { requireOwner } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import connectDB from "@/lib/mongodb";
@@ -18,6 +20,7 @@ export default async function EnrollmentsPage({ searchParams }) {
   const status = STATUSES.includes(raw) ? raw : "pending";
   await requireOwner();
   const { t, locale } = await getI18n();
+  const postRoom = isEmailConfigured();
   await connectDB();
 
   const query = status === "all" ? {} : status === "unpaid" ? { paymentStatus: "unpaid", status: { $in: ["active", "completed", "pending"] } } : { status };
@@ -57,8 +60,10 @@ export default async function EnrollmentsPage({ searchParams }) {
                     <td className="whitespace-nowrap">
                       <StatusBadge status={e.paymentStatus} label={t(`payment.${e.paymentStatus}`)} />
                       <p className="mt-0.5 text-xs text-muted">{formatMoney(e.amount, e.course.currency, locale)}</p>
+                      {e.paymentMethod === "whish" && <p className="mt-1 text-xs text-muted">Whish Money</p>}
+                      {e.status === "active" && e.paymentStatus === "unpaid" && e.amount > 0 && <WhishPaymentLink enrollmentId={e._id} url={e.whishPaymentUrl} />}
                     </td>
-                    <td><EnrollmentActions e={e} t={t} compact /></td>
+                    <td><EnrollmentActions e={e} t={t} compact canRemind={postRoom} /></td>
                   </tr>
                 ))}
               </tbody>

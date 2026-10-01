@@ -4,6 +4,7 @@ import { PageHeader, EmptyState, Breadcrumb } from "@/components/ui/Blocks";
 import { LevelBadge, StatusBadge } from "@/components/ui/Badges";
 import FormModal from "@/components/admin/FormModal";
 import { CourseFields } from "@/components/admin/Fields";
+import { scheduleText } from "@/lib/schedule";
 import { requireStaff } from "@/lib/auth";
 import { can, isOwner, teaches, portalKey } from "@/lib/roles";
 import { getI18n } from "@/lib/i18n/server";
@@ -139,7 +140,7 @@ export default async function AdminCoursesPage({ searchParams }) {
                         </Link>
                         <span className="mt-0.5 block text-[11.5px] text-muted">
                           {t(`format.${c.format}`)}
-                          {c.schedule ? ` · ${c.schedule}` : ""}
+                          {scheduleText(c, t, locale) ? ` · ${scheduleText(c, t, locale)}` : ""}
                         </span>
                       </td>
                       <td className="whitespace-nowrap text-muted tabular">
@@ -154,7 +155,7 @@ export default async function AdminCoursesPage({ searchParams }) {
                             <span className="block h-full bg-navy-700" style={{ width: `${full}%` }} />
                           </span>
                           {s.pending > 0 && (
-                            <span className="badge border border-amber-700/25 bg-amber-50 text-amber-900">+{s.pending}</span>
+                            <span dir="ltr" className="badge border border-amber-700/25 bg-amber-50 text-amber-900">+{s.pending}</span>
                           )}
                         </div>
                       </td>

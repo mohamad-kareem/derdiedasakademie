@@ -9,6 +9,7 @@ import FormModal from "@/components/admin/FormModal";
 import EnrollmentActions from "@/components/admin/EnrollmentActions";
 import InlineCourseForm from "@/components/admin/InlineCourseForm";
 import { LessonFields, AssignmentFields, AnnouncementFields, CourseFields, ResourceFields } from "@/components/admin/Fields";
+import SessionTable from "@/components/admin/SessionTable";
 import AttachmentList from "@/components/files/AttachmentList";
 import Resource from "@/models/Resource";
 import Attendance from "@/models/Attendance";
@@ -30,13 +31,13 @@ import "@/models/User";
 import {
   saveLesson, deleteLesson, saveAssignment, deleteAssignment, saveAnnouncement, deleteAnnouncement, addStudentToCourse, deleteCourse, saveResource, deleteResource,
 } from "@/app/actions/admin";
-import { cn, formatDate, formatDateTime, formatMoney, formatTime, nowMs, plain } from "@/lib/utils";
+import { cn, formatDate, formatDateTime, formatMoney, formatTime, nowMs, plain, toLocalInput } from "@/lib/utils";
 
 const TABS = ["sessions", "library", "students", "assignments", "announcements", "settings"];
 
 export default async function AdminCoursePage({ params, searchParams }) {
   const { id } = await params;
-  const { tab: rawTab } = await searchParams;
+  const { tab: rawTab, m: rawMonth } = await searchParams;
   if (!isId(id)) notFound();
   const user = await requireStaff();
   const { t, locale } = await getI18n();
@@ -74,6 +75,19 @@ export default async function AdminCoursePage({ params, searchParams }) {
   const now = nowMs();
 
   const attN = Object.fromEntries(attendanceCounts.map((r) => [r._id, r.n]));
+
+  // A term's classes are read a month at a time. The months come from the
+  // sessions themselves, and the one on screen defaults to wherever the course
+  // has got to rather than to the beginning of a term that is half over.
+  const months = monthsOf(lessons, locale);
+  const current = monthKey(lessons.find((l) => new Date(l.startsAt).getTime() + (l.durationMin || 90) * 60000 >= now)?.startsAt)
+    || months[months.length - 1]?.key
+    || "";
+  const month = months.some((m) => m.key === rawMonth) ? rawMonth : current;
+  const monthLessons = lessons.filter((l) => monthKey(l.startsAt) === month);
+  // The next class in the whole course, not merely the first one in the month
+  // being looked at — otherwise every month would claim to be next.
+  const nextId = lessons.find((l) => new Date(l.startsAt).getTime() + (l.durationMin || 90) * 60000 >= now)?._id;
   const builtin = course.classroom !== "external";
   const lessonOptions = lessons.map((l) => ({ _id: l._id, title: `${formatDate(l.startsAt, locale)} · ${l.title}` }));
   const tabCount = { library: resources.length, sessions: lessons.length, students: active.length, assignments: assignments.length, announcements: announcements.length };
@@ -120,37 +134,31 @@ export default async function AdminCoursePage({ params, searchParams }) {
         <Panel
           title={t("admin.course.sessionsTitle")}
           action={
-            mine && <FormModal trigger={<><Plus className="size-3.5" /> {t("admin.course.addSession")}</>} triggerClassName="btn-primary btn-sm" title={t("admin.course.addSession")} action={saveLesson.bind(null, id, null)} size="lg">
-              <LessonFields t={t} lesson={{ durationMin: 90 }} courseId={id} storage={storage} />
-            </FormModal>
+            <div className="flex items-center gap-2">
+              <Link href="/admin/schedule" className="text-[11.5px] font-semibold text-navy-700 hover:underline">
+                {t("admin.nav.schedule")}
+              </Link>
+              {mine && (
+                <FormModal trigger={<><Plus className="size-3.5" /> {t("admin.course.addSession")}</>} triggerClassName="btn-primary btn-sm" title={t("admin.course.addSession")} action={saveLesson.bind(null, id, null)} size="lg">
+                  <LessonFields t={t} lesson={{ durationMin: course.sessionMin || 90 }} courseId={id} storage={storage} />
+                </FormModal>
+              )}
+            </div>
           }
-          bodyClassName="divide-y divide-line"
         >
-          {lessons.length ? lessons.map((l, i) => {
-            const past = new Date(l.startsAt).getTime() + l.durationMin * 60000 < now;
-            return (
-              <div key={l._id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
-                <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-[2px] text-xs font-semibold", past ? "bg-canvas text-muted" : "bg-navy-900 text-white")}>{i + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-ink">{l.title}</p>
-                  <p className="text-xs text-muted">{formatDateTime(l.startsAt, locale)} · {l.durationMin} {t("lessons.min")}</p>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {l.materials?.map((m, j) => <a key={j} href={m.url} target="_blank" rel="noopener noreferrer" className="badge bg-gold-50 text-gold-600"><Link2 className="size-3" /> {m.title}</a>)}
-                    {l.attachments?.length > 0 && <span className="badge bg-gold-50 text-gold-600"><Paperclip className="size-3" /> {t("files.count", { n: l.attachments.length })}</span>}
-                    {attN[l._id] > 0 && <span className="badge bg-emerald-50 text-emerald-700"><Users className="size-3" /> {t("classroom.attendedCount", { n: attN[l._id] })}</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {builtin && !past && <Link href={`/classroom/${l._id}`} className="btn btn-gold btn-sm"><Video className="size-3.5" /> {t("classroom.startClass")}</Link>}
-                  <Link href={`/admin/courses/${id}/sessions/${l._id}`} className="btn btn-outline btn-sm" title={t("classroom.sessionReport")}><BarChart3 className="size-3.5" /></Link>
-                  {mine && <FormModal trigger={<Pencil className="size-3.5" />} triggerClassName="btn-outline btn-sm" title={t("admin.course.editSession")} action={saveLesson.bind(null, id, l._id)} size="lg">
-                    <LessonFields t={t} lesson={l} courseId={id} storage={storage} />
-                  </FormModal>}
-                  {mine && <ActionButton action={deleteLesson.bind(null, l._id)} confirm title={t("common.delete")}><Trash2 className="size-3.5" /></ActionButton>}
-                </div>
-              </div>
-            );
-          }) : <EmptyState icon={<CalendarDays className="size-5" />} title={t("admin.course.noSessions")} text={t("admin.course.noSessionsText")} />}
+          <SessionTable
+            lessons={monthLessons}
+            courseId={id}
+            months={months}
+            month={month}
+            nextId={nextId}
+            mine={mine}
+            storage={storage}
+            builtin={builtin}
+            attendance={attN}
+            t={t}
+            locale={locale}
+          />
         </Panel>
       )}
 
@@ -317,3 +325,23 @@ export default async function AdminCoursePage({ params, searchParams }) {
   );
 }
 
+function monthKey(value) {
+  return value ? toLocalInput(value, true).slice(0, 7) : "";
+}
+
+/**
+ * Every month the course has classes in, in order, with how many. The year is
+ * named only when the course runs across more than one, so a single term reads
+ * "Sept · Oct · Nov" rather than saying 2026 four times over.
+ */
+function monthsOf(lessons, locale) {
+  const years = new Set(lessons.map((l) => monthKey(l.startsAt).slice(0, 4)));
+  const opts = years.size > 1 ? { day: undefined, month: "short" } : { day: undefined, month: "short", year: undefined };
+  const seen = new Map();
+  for (const l of lessons) {
+    const key = monthKey(l.startsAt);
+    if (!seen.has(key)) seen.set(key, { key, label: formatDate(l.startsAt, locale, opts), n: 0 });
+    seen.get(key).n += 1;
+  }
+  return [...seen.values()];
+}

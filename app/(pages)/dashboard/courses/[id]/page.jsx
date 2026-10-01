@@ -9,6 +9,7 @@ import AttachmentList from "@/components/files/AttachmentList";
 import { requireStudent } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { isId } from "@/lib/validate";
+import { scheduleText } from "@/lib/schedule";
 import connectDB from "@/lib/mongodb";
 import Enrollment from "@/models/Enrollment";
 import Lesson from "@/models/Lesson";
@@ -68,7 +69,7 @@ export default async function CourseRoomPage({ params }) {
               <h1 className="mt-3 text-2xl font-semibold tracking-tight">{course.title}</h1>
               <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/65">
                 <span className="inline-flex items-center gap-1.5"><CalendarDays className="size-4" /> {formatDate(course.startDate, locale)} – {formatDate(course.endDate, locale)}</span>
-                {course.schedule && <span className="inline-flex items-center gap-1.5"><Clock className="size-4" /> {course.schedule}</span>}
+                {scheduleText(course, t, locale) && <span className="inline-flex items-center gap-1.5"><Clock className="size-4" /> {scheduleText(course, t, locale)}</span>}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">

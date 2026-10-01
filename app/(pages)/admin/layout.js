@@ -37,6 +37,7 @@ export default async function AdminLayout({ children }) {
   const nav = [
     { href: "/admin", label: t("admin.nav.overview"), icon: "dashboard" },
     { href: "/admin/courses", label: t("admin.nav.courses"), icon: "courses", section: teaching },
+    { href: "/admin/schedule", label: t("admin.nav.schedule"), icon: "calendar", section: teaching },
     can(user, "enrollments.decide") && {
       href: "/admin/enrollments", label: t("admin.nav.enrollments"), icon: "enrollments", badge: pending, section: teaching,
     },
