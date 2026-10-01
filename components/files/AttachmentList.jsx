@@ -1,5 +1,6 @@
 import { Download, ExternalLink } from "lucide-react";
 import FileIcon from "@/components/files/FileIcon";
+import ProtectedAudio from "@/components/files/ProtectedAudio";
 import { fileKind, fileUrl, formatBytes } from "@/lib/files-client";
 import { cn } from "@/lib/utils";
 
@@ -7,7 +8,8 @@ import { cn } from "@/lib/utils";
  * Server-safe list of attachments with inline players for audio/video and
  * preview for PDF/images. A file may bring its own addresses (`url`,
  * `downloadUrl`) — the academy's material does, pointing at the classroom
- * server — and a `title` to show instead of its file name.
+ * server — and a `title` to show instead of its file name. A file marked
+ * `noDownload` is played but never offered for saving.
  */
 export default function AttachmentList({ files = [], t, className, dense = false }) {
   if (!files?.length) return null;
@@ -32,13 +34,19 @@ export default function AttachmentList({ files = [], t, className, dense = false
                   <ExternalLink className="size-3.5" />
                 </a>
               )}
-              <a href={save} className="btn btn-outline btn-sm px-2" title={t("files.download")}>
-                <Download className="size-3.5" />
-              </a>
+              {!f.noDownload && (
+                <a href={save} className="btn btn-outline btn-sm px-2" title={t("files.download")}>
+                  <Download className="size-3.5" />
+                </a>
+              )}
             </div>
             {kind === "audio" && (
               <div className="border-t border-line px-3 py-2">
-                <audio controls preload="none" src={open} className="h-9 w-full" />
+                {f.noDownload ? (
+                  <ProtectedAudio src={open} className="h-9 w-full" />
+                ) : (
+                  <audio controls preload="none" src={open} className="h-9 w-full" />
+                )}
               </div>
             )}
             {kind === "video" && (
